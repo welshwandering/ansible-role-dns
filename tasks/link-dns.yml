@@ -1,0 +1,111 @@
+---
+# dns role - per-link DNS configuration tasks
+# Configures interface-specific DNS servers and routing domains
+#
+# NOTE: These are runtime configurations via resolvectl.
+# They do NOT survive reboots. For persistent per-link DNS,
+# configure via systemd-networkd .network files or the network role.
+
+# =============================================================================
+# Per-Link DNS Servers (Idempotent)
+# =============================================================================
+
+- name: Get current per-link DNS servers
+  ansible.builtin.command:
+    cmd: "resolvectl dns {{ item.interface }}"
+  loop: "{{ dns_link_dns }}"
+  loop_control:
+    label: "{{ item.interface }}"
+  register: current_link_dns
+  changed_when: false
+  failed_when: false
+  become: true
+  when:
+    - dns_resolved_enabled | bool
+    - item.servers is defined
+    - item.servers | length > 0
+  tags:
+    - dns
+    - config
+    - link-dns
+
+- name: Configure per-link DNS servers
+  ansible.builtin.command:
+    cmd: "resolvectl dns {{ item.item.interface }} {{ item.item.servers | join(' ') }}"
+  loop: "{{ current_link_dns.results | default([]) }}"
+  loop_control:
+    label: "{{ item.item.interface }}"
+  register: link_dns_result
+  changed_when: true
+  failed_when: link_dns_result.rc != 0
+  become: true
+  when:
+    - item.rc is defined
+    - item.rc == 0
+    - item.item.servers | sort | join(' ') not in item.stdout
+  tags:
+    - dns
+    - config
+    - link-dns
+
+# =============================================================================
+# Per-Link DNS Domains (Idempotent)
+# =============================================================================
+
+- name: Get current per-link DNS domains
+  ansible.builtin.command:
+    cmd: "resolvectl domain {{ item.interface }}"
+  loop: "{{ dns_link_dns }}"
+  loop_control:
+    label: "{{ item.interface }}"
+  register: current_link_domains
+  changed_when: false
+  failed_when: false
+  become: true
+  when:
+    - dns_resolved_enabled | bool
+    - item.domains is defined
+    - item.domains | length > 0
+  tags:
+    - dns
+    - config
+    - link-dns
+
+- name: Configure per-link DNS domains
+  ansible.builtin.command:
+    cmd: "resolvectl domain {{ item.item.interface }} {{ item.item.domains | join(' ') }}"
+  loop: "{{ current_link_domains.results | default([]) }}"
+  loop_control:
+    label: "{{ item.item.interface }}"
+  register: link_domain_result
+  changed_when: true
+  failed_when: link_domain_result.rc != 0
+  become: true
+  when:
+    - item.rc is defined
+    - item.rc == 0
+    - not (item.item.domains | sort | difference(_current_domains) | length == 0 and
+           _current_domains | difference(item.item.domains | sort) | length == 0)
+  vars:
+    # Extract domains from output like "Link 2 (eth0): ~corp.example.com ~internal"
+    _current_domains: "{{ item.stdout | regex_replace('^.*:', '') | trim | split(' ') | reject('eq', '') | list | sort }}"
+  tags:
+    - dns
+    - config
+    - link-dns
+
+# =============================================================================
+# Status
+# =============================================================================
+
+- name: Display per-link DNS status
+  ansible.builtin.debug:
+    msg: |
+      Per-link DNS configured for {{ dns_link_dns | length }} interface(s).
+      NOTE: This is a runtime configuration and will NOT survive reboot.
+      For persistent configuration, use systemd-networkd .network files.
+    verbosity: 1
+  tags:
+    - dns
+    - config
+    - link-dns

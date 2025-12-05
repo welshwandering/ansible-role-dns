@@ -1,0 +1,207 @@
+---
+# dns role - validation tasks
+
+# =============================================================================
+# Systemd Version Detection
+# =============================================================================
+
+- name: Get systemd version
+  ansible.builtin.command:
+    cmd: systemctl --version
+  register: systemd_version_output
+  changed_when: false
+  check_mode: false
+  tags:
+    - dns
+    - validate
+
+- name: Parse systemd version
+  ansible.builtin.set_fact:
+    dns_systemd_version: "{{ systemd_version_output.stdout_lines[0] | regex_search('systemd ([0-9]+)', '\\1') | first | int }}"
+  tags:
+    - dns
+    - validate
+
+- name: Display systemd version
+  ansible.builtin.debug:
+    msg: "Detected systemd version: {{ dns_systemd_version }}"
+    verbosity: 1
+  tags:
+    - dns
+    - validate
+
+# Define feature availability based on systemd version
+# Reference: https://github.com/systemd/systemd/blob/main/NEWS
+- name: Set feature availability flags
+  ansible.builtin.set_fact:
+    dns_feature_stub_listener_extra: "{{ dns_systemd_version | int >= 243 }}"
+    dns_feature_stale_retention: "{{ dns_systemd_version | int >= 246 }}"
+    dns_feature_cache_from_localhost: "{{ dns_systemd_version | int >= 248 }}"
+  tags:
+    - dns
+    - validate
+
+# =============================================================================
+# Service Availability
+# =============================================================================
+
+- name: Verify systemd-resolved is available
+  ansible.builtin.systemd_service:
+    name: systemd-resolved
+  register: resolved_check
+  failed_when: false
+  check_mode: false
+  become: true
+  tags:
+    - dns
+    - validate
+
+- name: Fail if systemd-resolved is not available
+  ansible.builtin.fail:
+    msg: "systemd-resolved is not available on this system"
+  when: resolved_check.status is not defined
+  tags:
+    - dns
+    - validate
+
+- name: Check if systemd-resolved is masked
+  ansible.builtin.command:
+    cmd: systemctl is-enabled systemd-resolved
+  register: resolved_enabled_check
+  changed_when: false
+  failed_when: false
+  check_mode: false
+  become: true
+  tags:
+    - dns
+    - validate
+
+- name: Fail if systemd-resolved is masked
+  ansible.builtin.fail:
+    msg: |
+      systemd-resolved is masked. To use this role, unmask it first:
+        systemctl unmask systemd-resolved
+      Or set dns_resolved_enabled: false to skip resolved configuration.
+  when:
+    - dns_resolved_enabled | bool
+    - resolved_enabled_check.stdout == 'masked'
+  tags:
+    - dns
+    - validate
+
+- name: Verify resolvectl command is available
+  ansible.builtin.command:
+    cmd: which resolvectl
+  register: resolvectl_check
+  changed_when: false
+  failed_when: false
+  check_mode: false
+  tags:
+    - dns
+    - validate
+
+- name: Fail if resolvectl command not found
+  ansible.builtin.fail:
+    msg: "resolvectl command not found in PATH - systemd-resolved may not be properly installed"
+  when: resolvectl_check.rc != 0
+  tags:
+    - dns
+    - validate
+
+# =============================================================================
+# Feature Compatibility Warnings
+# =============================================================================
+
+- name: Warn about unsupported StaleRetentionSec
+  ansible.builtin.debug:
+    msg: |
+      WARNING: dns_stale_retention_sec={{ dns_stale_retention_sec }} requested but
+      StaleRetentionSec requires systemd 246+. Current version: {{ dns_systemd_version }}.
+      This setting will be ignored.
+  when:
+    - dns_stale_retention_sec | default(0) | int > 0
+    - not dns_feature_stale_retention | bool
+  tags:
+    - dns
+    - validate
+
+- name: Warn about unsupported DNSStubListenerExtra
+  ansible.builtin.debug:
+    msg: |
+      WARNING: dns_stub_listener_extra configured but DNSStubListenerExtra requires
+      systemd 243+. Current version: {{ dns_systemd_version }}.
+      This setting will be ignored.
+  when:
+    - dns_stub_listener_extra | default([]) | length > 0
+    - not dns_feature_stub_listener_extra | bool
+  tags:
+    - dns
+    - validate
+
+# =============================================================================
+# IP Address Validation
+# =============================================================================
+
+- name: Validate primary DNS server addresses
+  ansible.builtin.assert:
+    that:
+      - item | regex_search('^[0-9a-fA-F:.]+(?:#[0-9a-zA-Z.-]+)?$') is not none
+    fail_msg: "Invalid DNS server address: {{ item }}"
+    quiet: true
+  loop: "{{ dns_servers }}"
+  when:
+    - dns_validate_ips | bool
+    - dns_servers | length > 0
+  tags:
+    - dns
+    - validate
+
+- name: Validate fallback DNS server addresses
+  ansible.builtin.assert:
+    that:
+      - item | regex_search('^[0-9a-fA-F:.]+(?:#[0-9a-zA-Z.-]+)?$') is not none
+    fail_msg: "Invalid fallback DNS server address: {{ item }}"
+    quiet: true
+  loop: "{{ dns_fallback_servers }}"
+  when:
+    - dns_validate_ips | bool
+    - dns_fallback_servers | length > 0
+  tags:
+    - dns
+    - validate
+
+- name: Validate per-link DNS server addresses
+  ansible.builtin.assert:
+    that:
+      - server | regex_search('^[0-9a-fA-F:.]+(?:#[0-9]+)?$')
+    fail_msg: "Invalid per-link DNS server address: {{ server }} for interface {{ item.interface }}"
+    quiet: true
+  loop: "{{ dns_link_dns }}"
+  loop_control:
+    label: "{{ item.interface }}"
+  vars:
+    server: "{{ item.servers | join(' ') }}"
+  when:
+    - dns_validate_ips | bool
+    - dns_link_dns | length > 0
+  tags:
+    - dns
+    - validate
+
+# Validate IP addresses using regex to avoid netaddr dependency
+# Matches IPv4 (e.g., 192.168.1.1) and IPv6 (e.g., ::1, fe80::1)
+- name: Validate /etc/hosts entry IP addresses
+  ansible.builtin.assert:
+    that:
+      - item.ip | regex_search('^[0-9a-fA-F:.]+$') is not none
+    fail_msg: "Invalid IP address in hosts entry: {{ item.ip }}"
+    quiet: true
+  loop: "{{ dns_hosts_entries }}"
+  loop_control:
+    label: "{{ item.ip }}"
+  when:
+    - dns_validate_ips | bool
+    - dns_hosts_entries | length > 0
+  tags:
+    - dns
+    - validate

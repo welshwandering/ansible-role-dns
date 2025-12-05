@@ -1,0 +1,15 @@
+---
+# dns role - nsswitch configuration tasks
+
+- name: Configure nsswitch.conf for systemd-resolved
+  ansible.builtin.lineinfile:
+    path: /etc/nsswitch.conf
+    regexp: '^hosts:'
+    line: "hosts:          {{ dns_nsswitch_hosts }}"
+    backup: true
+  become: true
+  when: dns_resolved_enabled | bool
+  tags:
+    - dns
+    - config
+    - nsswitch

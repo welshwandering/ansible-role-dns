@@ -1,0 +1,37 @@
+---
+# Molecule converge playbook - tests dns_enabled: false
+
+- name: Converge (disabled)
+  hosts: all
+  become: true
+  gather_facts: true
+
+  pre_tasks:
+    - name: Update apt cache
+      ansible.builtin.apt:
+        update_cache: true
+        cache_valid_time: 3600
+
+    - name: Install dependencies
+      ansible.builtin.apt:
+        name:
+          - python3
+          - python3-apt
+          - systemd
+          - systemd-resolved
+        state: present
+
+    - name: Record initial resolved state
+      ansible.builtin.systemd_service:
+        name: systemd-resolved
+      register: initial_resolved_state
+
+  roles:
+    - role: dns
+      vars:
+        dns_enabled: false
+
+  post_tasks:
+    - name: Store that role completed
+      ansible.builtin.set_fact:
+        role_completed: true

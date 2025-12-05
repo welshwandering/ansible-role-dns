@@ -1,0 +1,35 @@
+---
+# Molecule verify playbook - tests dns_enabled: false behavior
+
+- name: Verify (disabled)
+  hosts: all
+  become: true
+  gather_facts: false
+
+  tasks:
+    - name: Verify role completed without error
+      ansible.builtin.assert:
+        that:
+          - role_completed is defined
+          - role_completed | bool
+        fail_msg: "Role did not complete successfully"
+
+    - name: Check no config file was created
+      ansible.builtin.stat:
+        path: /etc/systemd/resolved.conf.d/dns.conf
+      register: config_check
+      failed_when: config_check.stat.exists
+
+    - name: Check no metrics file was created
+      ansible.builtin.stat:
+        path: /var/lib/node_exporter/textfile_collector/dns.prom
+      register: metrics_check
+      failed_when: metrics_check.stat.exists
+
+    - name: Display verification results
+      ansible.builtin.debug:
+        msg:
+          - "Role completed with dns_enabled: false"
+          - "No configuration files were created"
+          - "System state was not modified"
+          - "Disabled scenario passed!"

@@ -1,0 +1,132 @@
+---
+# dns role - systemd-resolved configuration tasks
+
+- name: Ensure /etc/systemd/resolved.conf.d directory exists
+  ansible.builtin.file:
+    path: /etc/systemd/resolved.conf.d
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+  become: true
+  tags:
+    - dns
+    - config
+
+# =============================================================================
+# Cleanup Old Configuration Files
+# =============================================================================
+
+- name: Find existing resolved.conf.d files
+  ansible.builtin.find:
+    paths: /etc/systemd/resolved.conf.d
+    patterns: "*.conf"
+  register: existing_conf_files
+  become: true
+  when: dns_cleanup_old_configs | bool
+  tags:
+    - dns
+    - config
+    - cleanup
+
+- name: Remove orphaned configuration files
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: absent
+  loop: "{{ existing_conf_files.files | default([]) }}"
+  loop_control:
+    label: "{{ item.path | basename }}"
+  when:
+    - dns_cleanup_old_configs | bool
+    - item.path | basename != dns_config_filename
+  become: true
+  notify: Restart systemd-resolved
+  tags:
+    - dns
+    - config
+    - cleanup
+
+# =============================================================================
+# Main Configuration
+# =============================================================================
+
+- name: Deploy systemd-resolved configuration
+  ansible.builtin.template:
+    src: custom.conf.j2
+    dest: "/etc/systemd/resolved.conf.d/{{ dns_config_filename }}"
+    owner: root
+    group: root
+    mode: '0644'
+    backup: true
+  become: true
+  notify: Restart systemd-resolved
+  when: dns_resolved_enabled | bool
+  tags:
+    - dns
+    - config
+
+# =============================================================================
+# /etc/resolv.conf Symlink Management
+# =============================================================================
+# Skipped when dns_manage_resolv_conf: false (e.g., Docker containers where
+# /etc/resolv.conf is bind-mounted and cannot be replaced)
+
+- name: Check current /etc/resolv.conf status
+  ansible.builtin.stat:
+    path: /etc/resolv.conf
+  register: resolv_conf_stat
+  when: dns_manage_resolv_conf | bool
+  tags:
+    - dns
+    - config
+
+- name: Backup existing /etc/resolv.conf if not a symlink
+  ansible.builtin.copy:
+    src: /etc/resolv.conf
+    dest: /etc/resolv.conf.backup
+    owner: root
+    group: root
+    mode: '0644'
+    remote_src: true
+    force: false
+  become: true
+  when:
+    - dns_manage_resolv_conf | bool
+    - dns_resolved_enabled | bool
+    - resolv_conf_stat.stat.exists
+    - not resolv_conf_stat.stat.islnk
+  tags:
+    - dns
+    - config
+
+- name: Remove /etc/resolv.conf if not pointing to stub resolver
+  ansible.builtin.file:
+    path: /etc/resolv.conf
+    state: absent
+  become: true
+  when:
+    - dns_manage_resolv_conf | bool
+    - dns_resolved_enabled | bool
+    - resolv_conf_stat.stat.exists
+    - >-
+      not resolv_conf_stat.stat.islnk or
+      resolv_conf_stat.stat.lnk_source != '/run/systemd/resolve/stub-resolv.conf'
+  tags:
+    - dns
+    - config
+
+- name: Create /etc/resolv.conf symlink to systemd-resolved stub resolver
+  ansible.builtin.file:
+    src: /run/systemd/resolve/stub-resolv.conf
+    dest: /etc/resolv.conf
+    state: link
+    owner: root
+    group: root
+    force: true
+  become: true
+  when:
+    - dns_manage_resolv_conf | bool
+    - dns_resolved_enabled | bool
+  tags:
+    - dns
+    - config

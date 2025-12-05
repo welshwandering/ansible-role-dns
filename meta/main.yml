@@ -1,0 +1,35 @@
+---
+# dns role metadata
+
+galaxy_info:
+  role_name: dns
+  namespace: haven
+  author: Haven Contributors
+  description: Production-ready systemd-resolved configuration with DNSSEC, DNS-over-TLS, split-horizon DNS, and security hardening
+  license: MIT
+  min_ansible_version: "2.15"
+
+  platforms:
+    - name: Debian
+      versions:
+        - bullseye   # 11
+        - bookworm   # 12
+        - trixie     # 13
+    - name: Ubuntu
+      versions:
+        - jammy      # 22.04
+        - noble      # 24.04
+
+  galaxy_tags:
+    - dns
+    - systemd
+    - resolved
+    - dnssec
+    - networking
+    - security
+    - privacy
+
+dependencies: []
+# Note: A network configuration role (e.g., systemd-networkd) is recommended
+# but not required. DNS configuration can work with any networking setup.
+# For persistent per-link DNS, configure via systemd-networkd .network files.

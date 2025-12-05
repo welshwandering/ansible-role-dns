@@ -1,0 +1,322 @@
+---
+# dns role - systemd-resolved, nsswitch, hosts
+
+# =============================================================================
+# Enable/Disable
+# =============================================================================
+
+# Enable/disable this role
+dns_enabled: true
+
+# Enable systemd-resolved service
+dns_resolved_enabled: true
+
+# =============================================================================
+# Package Installation
+# =============================================================================
+
+# Install systemd-resolved package if not present
+# Required on Debian (not installed by default)
+# Ubuntu 22.04+ has it pre-installed
+dns_install_package: true
+
+# =============================================================================
+# Conflicting Resolver Management
+# =============================================================================
+
+# Disable conflicting DNS resolvers when enabling systemd-resolved
+# This ensures clean handoff and prevents port conflicts
+dns_disable_conflicts: true
+
+# Specific conflict handling (only applied when dns_disable_conflicts: true)
+#
+# resolvconf: Legacy resolver that manages /etc/resolv.conf
+# - Will be removed if installed (conflicts with systemd-resolved symlink)
+dns_remove_resolvconf: true
+
+# avahi-daemon: mDNS/DNS-SD responder (Bonjour compatible)
+# - Will be stopped/disabled if dns_sd_enabled is true (conflicts with mDNS)
+# - Left alone if dns_sd_enabled is false (can coexist for mDNS client use)
+dns_disable_avahi: "{{ dns_sd_enabled | default(false) }}"
+
+# dnsmasq: Lightweight DNS/DHCP server
+# - Will be stopped if running on port 53 (conflicts with stub listener)
+# - Set to false if dnsmasq is used for DHCP only
+dns_disable_dnsmasq: false
+
+# unbound: Validating, recursive, caching DNS resolver
+# - Will be stopped if running (conflicts with local resolver role)
+dns_disable_unbound: false
+
+# =============================================================================
+# DNS Servers
+# =============================================================================
+
+# Primary DNS servers (empty = use DHCP/network defaults)
+# Supports IPv4 and IPv6 addresses, optionally with port: "1.1.1.1#53"
+dns_servers: []
+
+# Fallback DNS servers (used when primary servers fail)
+dns_fallback_servers:
+  - 1.1.1.1  # Cloudflare
+  - 8.8.8.8  # Google
+
+# =============================================================================
+# Per-Link DNS (Interface-Specific)
+# =============================================================================
+
+# Configure DNS servers for specific network interfaces
+# Useful for VPNs, multi-homed hosts, or split-tunnel configurations
+# Example:
+#   dns_link_dns:
+#     - interface: eth0
+#       servers:
+#         - 10.0.0.1
+#         - 10.0.0.2
+#     - interface: wg0
+#       servers:
+#         - 10.100.0.1
+#       domains:
+#         - "~vpn.example.com"  # Route this domain via wg0
+#         - "~internal.corp"
+dns_link_dns: []
+
+# =============================================================================
+# Split-Horizon DNS (Domain Routing)
+# =============================================================================
+
+# NOTE: For split-horizon DNS, use dns_link_dns with routing domains instead.
+# Routing domains use the "~" prefix to indicate they should route queries
+# to specific DNS servers without being used as search domains.
+#
+# Example using dns_link_dns for split-horizon:
+#   dns_link_dns:
+#     - interface: eth0
+#       servers:
+#         - 10.0.0.53
+#       domains:
+#         - "~corp.example.com"    # Route corp.example.com via eth0's DNS
+#         - "~internal.local"
+#
+# For persistent split-horizon, configure via systemd-networkd .network files.
+
+# =============================================================================
+# Search Domains
+# =============================================================================
+
+# DNS search domains (appended to single-label names)
+dns_domains: []
+
+# =============================================================================
+# Security and Privacy
+# =============================================================================
+
+# DNSSEC validation mode
+# - true: Strict DNSSEC validation (may break some domains)
+# - false: Disable DNSSEC validation
+# - allow-downgrade: Validate when available, allow unsigned responses
+dns_dnssec: allow-downgrade
+
+# DNS-over-TLS mode
+# - true: Require DNS-over-TLS (fail if not supported)
+# - opportunistic: Use DNS-over-TLS when available, fallback to plain DNS
+# - false: Disable DNS-over-TLS
+dns_over_tls: opportunistic
+
+# =============================================================================
+# Caching
+# =============================================================================
+
+# Enable DNS caching
+dns_cache: true
+
+# Stale record retention (seconds) [systemd 246+]
+# Return stale cached records when upstream servers are unreachable
+# - 0: Disabled (default)
+# - >0: Serve stale records for this duration while retrying upstream
+dns_stale_retention_sec: 0
+
+# Cache responses from localhost (127.0.0.0/8) [systemd 248+]
+# - true: Cache localhost responses (default)
+# - false: Don't cache localhost responses
+dns_cache_from_localhost: true
+
+# =============================================================================
+# Stub Resolver
+# =============================================================================
+
+# Enable stub listener on 127.0.0.53
+# This allows traditional applications to use systemd-resolved
+dns_stub_listener: true
+
+# Stub listener port
+dns_stub_port: 53
+
+# Additional stub listener addresses
+# Example: ["127.0.0.54", "192.168.1.1:5353"]
+dns_stub_listener_extra: []
+
+# =============================================================================
+# Multicast DNS (mDNS)
+# =============================================================================
+
+# Enable multicast DNS for .local domains
+# - true: Enable mDNS resolving and responding (required for DNS-SD)
+# - resolve: Enable mDNS resolving only (don't advertise hostname)
+# - false: Disable mDNS entirely
+dns_mdns: false
+
+# Interfaces to enable mDNS on (for DNS-SD service advertisement)
+# Creates systemd-networkd drop-in configs for each interface
+# Required for DNS-SD to actually advertise services on the network
+# Example:
+#   dns_mdns_interfaces:
+#     - eth0
+#     - br0
+dns_mdns_interfaces: []
+
+# =============================================================================
+# DNS Service Discovery (DNS-SD)
+# =============================================================================
+
+# Enable DNS-SD service advertisement
+# Allows this host to advertise services on the local network via mDNS
+# Note: Requires dns_mdns: true and dns_mdns_interfaces configured
+dns_sd_enabled: false
+
+# Services to advertise via DNS-SD
+# Each service creates a .dnssd file in /etc/systemd/dnssd/
+#
+# Specifiers supported in Name field:
+#   %H - short hostname
+#   %m - machine ID
+#   %b - boot ID
+#   %v - kernel version
+#
+# Example:
+#   dns_sd_services:
+#     - name: "%H"                      # Hostname
+#       type: "_http._tcp"              # Service type (RFC 6763)
+#       port: 80
+#       txt:                            # Optional TXT records
+#         - "path=/"
+#         - "version=1.0"
+#
+#     - name: "Home Assistant on %H"
+#       type: "_home-assistant._tcp"
+#       port: 8123
+#       priority: 0                     # Optional SRV priority (default: 0)
+#       weight: 0                       # Optional SRV weight (default: 0)
+#       txt:
+#         - "base_url=https://homeassistant.local:8123"
+#
+#     - name: "%H Prometheus"
+#       type: "_prometheus._tcp"
+#       port: 9090
+#       subtype: "_metrics"             # Optional service subtype
+#
+# Common service types:
+#   _http._tcp          - Web servers
+#   _https._tcp         - Secure web servers
+#   _ssh._tcp           - SSH servers
+#   _prometheus._tcp    - Prometheus metrics endpoints
+#   _grafana._tcp       - Grafana dashboards
+#   _home-assistant._tcp - Home Assistant instances
+#   _hap._tcp           - HomeKit Accessory Protocol
+#   _mqtt._tcp          - MQTT brokers
+#   _printer._tcp       - Network printers
+#   _ipp._tcp           - Internet Printing Protocol
+#
+dns_sd_services: []
+
+# Remove unmanaged .dnssd files from /etc/systemd/dnssd/
+# When true, any .dnssd files not defined in dns_sd_services will be removed
+dns_sd_cleanup: true
+
+# =============================================================================
+# LLMNR (Link-Local Multicast Name Resolution)
+# =============================================================================
+
+# Enable LLMNR for link-local name resolution
+# Note: LLMNR has known security issues, disabled by default
+dns_llmnr: false
+
+# =============================================================================
+# Additional Hosts
+# =============================================================================
+
+# Additional /etc/hosts entries
+# Note: Each IP should be unique. Changing names for an existing IP
+# will update the entry (not create duplicates).
+# Example:
+#   dns_hosts_entries:
+#     - ip: 10.0.0.1
+#       names:
+#         - gateway
+#         - gateway.example.com
+#     - ip: 10.0.0.2
+#       names:
+#         - dns
+#         - dns.example.com
+dns_hosts_entries: []
+
+# =============================================================================
+# NSSwitch Configuration
+# =============================================================================
+
+# NSSwitch hosts resolution order
+# Default: files (static hosts) -> mymachines (containers) -> resolve (systemd-resolved) -> myhostname (localhost)
+dns_nsswitch_hosts: "files mymachines resolve [!UNAVAIL=return] myhostname"
+
+# =============================================================================
+# /etc/resolv.conf Management
+# =============================================================================
+
+# Manage /etc/resolv.conf symlink to point to systemd-resolved
+# Set to false when /etc/resolv.conf is bind-mounted (e.g., Docker containers)
+# or when another tool manages resolv.conf
+dns_manage_resolv_conf: true
+
+# Manage /etc/hosts entries
+# Set to false when /etc/hosts is bind-mounted (e.g., Docker containers)
+# or when another tool manages hosts entries
+dns_manage_hosts: true
+
+# =============================================================================
+# Advanced Options
+# =============================================================================
+
+# Configuration filename (deployed to /etc/systemd/resolved.conf.d/)
+dns_config_filename: "dns.conf"
+
+# Read /etc/hosts before querying DNS
+dns_read_etc_hosts: true
+
+# Clean up old configuration files when dns_config_filename changes
+# Will remove any *.conf files in resolved.conf.d/ not matching current filename
+dns_cleanup_old_configs: true
+
+# Validate DNS server IP addresses before deployment
+dns_validate_ips: true
+
+# =============================================================================
+# Custom Settings
+# =============================================================================
+
+# Additional resolved.conf settings (key-value pairs)
+# These will be added verbatim to the [Resolve] section
+# See resolved.conf(5) for all available options
+#
+# Example:
+#   dns_custom_settings:
+#     ResolveUnicastSingleLabel: "yes"    # Resolve single-label names via DNS
+#     DNSStubListenerExtra: "192.168.1.1" # Additional stub listener
+#     CacheFromLocalhost: "no"            # Don't cache responses from localhost
+#
+# Common options:
+#   ResolveUnicastSingleLabel - Resolve single-label names via unicast DNS
+#   DNSStubListenerExtra      - Additional addresses for stub listener
+#   CacheFromLocalhost        - Cache responses from 127.0.0.0/8 sources
+#   LLMNR                     - Per-link LLMNR setting
+#   MulticastDNS              - Per-link mDNS setting
+dns_custom_settings: {}

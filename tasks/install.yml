@@ -1,0 +1,62 @@
+---
+# dns role - package installation tasks
+
+# =============================================================================
+# Package Installation (Debian/Ubuntu)
+# =============================================================================
+
+- name: Install systemd-resolved package (Debian/Ubuntu)
+  ansible.builtin.apt:
+    name: systemd-resolved
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+  become: true
+  when:
+    - ansible_os_family == "Debian"
+    - dns_install_package | bool
+  tags:
+    - dns
+    - install
+    - packages
+
+# =============================================================================
+# Package Installation (RHEL/Rocky/Fedora) - Future support
+# =============================================================================
+
+- name: Install systemd-resolved package (RHEL family)
+  ansible.builtin.dnf:
+    name: systemd-resolved
+    state: present
+  become: true
+  when:
+    - ansible_os_family == "RedHat"
+    - dns_install_package | bool
+  tags:
+    - dns
+    - install
+    - packages
+
+# =============================================================================
+# Verify Installation
+# =============================================================================
+
+- name: Verify systemd-resolved binary exists
+  ansible.builtin.stat:
+    path: /usr/lib/systemd/systemd-resolved
+  register: resolved_binary
+  tags:
+    - dns
+    - install
+
+- name: Fail if systemd-resolved not installed
+  ansible.builtin.fail:
+    msg: |
+      systemd-resolved binary not found at /usr/lib/systemd/systemd-resolved.
+      Ensure the systemd-resolved package is installed or set dns_install_package: true.
+  when:
+    - dns_resolved_enabled | bool
+    - not resolved_binary.stat.exists
+  tags:
+    - dns
+    - install

@@ -1,0 +1,130 @@
+---
+# dns role - systemd-resolved, nsswitch, hosts, DNS-SD
+#
+# Task structure:
+#   install.yml        - Package installation (systemd-resolved)
+#   conflicts.yml      - Disable conflicting resolvers (resolvconf, avahi, etc.)
+#   validate.yml       - Pre-flight checks for systemd-resolved
+#   configure.yml      - resolved.conf and resolv.conf symlink
+#   link-dns.yml       - Per-interface DNS and split-horizon
+#   mdns-interface.yml - Per-interface mDNS for DNS-SD
+#   dnssd.yml          - DNS Service Discovery (.dnssd files)
+#   nsswitch.yml       - NSSwitch hosts configuration
+#   hosts.yml          - /etc/hosts entries
+#   service.yml        - systemd-resolved service management
+#   verify.yml         - Post-configuration verification
+#   metrics.yml        - Prometheus textfile collector metrics
+
+- name: Skip dns role if disabled
+  ansible.builtin.meta: end_host
+  when: not (dns_enabled | bool)
+  tags:
+    - dns
+    - always
+
+# =============================================================================
+# Installation and Conflicts
+# =============================================================================
+
+- name: Install systemd-resolved package
+  ansible.builtin.include_tasks: install.yml
+  when: dns_resolved_enabled | bool
+  tags:
+    - dns
+    - install
+
+- name: Handle conflicting resolvers
+  ansible.builtin.include_tasks: conflicts.yml
+  when:
+    - dns_resolved_enabled | bool
+    - dns_disable_conflicts | bool
+  tags:
+    - dns
+    - conflicts
+
+# =============================================================================
+# Validation and Configuration
+# =============================================================================
+
+- name: Validate systemd-resolved prerequisites
+  ansible.builtin.include_tasks: validate.yml
+  tags:
+    - dns
+    - validate
+
+- name: Configure systemd-resolved
+  ansible.builtin.include_tasks: configure.yml
+  tags:
+    - dns
+    - config
+
+- name: Configure per-link DNS
+  ansible.builtin.include_tasks: link-dns.yml
+  when: dns_link_dns | length > 0
+  tags:
+    - dns
+    - config
+    - link-dns
+
+# =============================================================================
+# mDNS and DNS-SD
+# =============================================================================
+
+- name: Configure per-interface mDNS
+  ansible.builtin.include_tasks: mdns-interface.yml
+  when:
+    - dns_mdns | bool or dns_mdns == 'resolve'
+    - dns_mdns_interfaces | length > 0
+  tags:
+    - dns
+    - config
+    - mdns
+
+- name: Configure DNS Service Discovery
+  ansible.builtin.include_tasks: dnssd.yml
+  when: dns_sd_enabled | bool
+  tags:
+    - dns
+    - config
+    - dnssd
+
+# =============================================================================
+# System Configuration
+# =============================================================================
+
+- name: Configure nsswitch
+  ansible.builtin.include_tasks: nsswitch.yml
+  tags:
+    - dns
+    - config
+    - nsswitch
+
+- name: Configure /etc/hosts
+  ansible.builtin.include_tasks: hosts.yml
+  tags:
+    - dns
+    - config
+    - hosts
+
+# =============================================================================
+# Service and Verification
+# =============================================================================
+
+- name: Manage systemd-resolved service
+  ansible.builtin.include_tasks: service.yml
+  tags:
+    - dns
+    - service
+
+- name: Verify DNS configuration
+  ansible.builtin.include_tasks: verify.yml
+  tags:
+    - dns
+    - verify
+
+- name: Export DNS metrics
+  ansible.builtin.include_tasks: metrics.yml
+  when: dns_enabled | bool
+  tags:
+    - dns
+    - metrics

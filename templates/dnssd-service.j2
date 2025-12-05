@@ -1,0 +1,47 @@
+# {{ item.type }} DNS-SD service
+# =============================================================================
+# Managed by Ansible - DO NOT EDIT MANUALLY
+# Role: dns
+# =============================================================================
+#
+# This file advertises a service via DNS Service Discovery (DNS-SD).
+# The service is announced on interfaces with MulticastDNS=yes enabled.
+#
+# Discover this service with:
+#   resolvectl service {{ item.type }}.local
+#
+# =============================================================================
+
+[Service]
+# Service instance name
+# Specifiers: %H=hostname, %m=machine-id, %b=boot-id, %v=kernel-version
+Name={{ item.name }}
+
+# Service type (RFC 6763)
+# Format: _<service>._<protocol> (e.g., _http._tcp, _ssh._tcp)
+Type={{ item.type }}
+
+# Port number
+Port={{ item.port }}
+{% if item.subtype is defined %}
+
+# Service subtype (RFC 6763 section 7.1)
+SubType={{ item.subtype }}
+{% endif %}
+{% if item.priority is defined %}
+
+# SRV record priority (lower = preferred, default: 0)
+Priority={{ item.priority }}
+{% endif %}
+{% if item.weight is defined %}
+
+# SRV record weight (for load balancing, default: 0)
+Weight={{ item.weight }}
+{% endif %}
+{% if item.txt is defined and item.txt | length > 0 %}
+
+# TXT record data (key=value pairs for service metadata)
+{% for txt_entry in item.txt %}
+TxtText={{ txt_entry }}
+{% endfor %}
+{% endif %}

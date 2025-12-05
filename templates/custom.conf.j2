@@ -1,0 +1,136 @@
+# systemd-resolved configuration
+# =============================================================================
+# Managed by Ansible dns role - DO NOT EDIT MANUALLY
+# Host: {{ ansible_hostname }}
+# Systemd: {{ dns_systemd_version | default('unknown') }}
+# =============================================================================
+#
+# This file configures systemd-resolved for DNS resolution, DNSSEC validation,
+# and DNS-over-TLS support.
+#
+# Check status with: resolvectl status
+# Restart after changes: systemctl restart systemd-resolved
+#
+# =============================================================================
+
+[Resolve]
+
+# =============================================================================
+# DNS Servers
+# =============================================================================
+
+{% if dns_servers | length > 0 %}
+# Primary DNS servers
+DNS={{ dns_servers | join(' ') }}
+{% else %}
+# No primary DNS servers configured - using network defaults (DHCP/RA)
+{% endif %}
+
+{% if dns_fallback_servers | length > 0 %}
+# Fallback DNS servers (used when primary servers fail)
+FallbackDNS={{ dns_fallback_servers | join(' ') }}
+{% endif %}
+
+# =============================================================================
+# Search Domains
+# =============================================================================
+
+{% if dns_domains | length > 0 %}
+# DNS search domains
+Domains={{ dns_domains | join(' ') }}
+{% else %}
+# No search domains configured
+{% endif %}
+
+# =============================================================================
+# Security and Privacy
+# =============================================================================
+
+# DNSSEC validation mode
+DNSSEC={{ dns_dnssec }}
+
+{% if dns_over_tls != false %}
+# DNS-over-TLS mode
+DNSOverTLS={{ dns_over_tls if dns_over_tls == true else 'opportunistic' }}
+{% else %}
+# DNS-over-TLS disabled
+DNSOverTLS=no
+{% endif %}
+
+# =============================================================================
+# Caching
+# =============================================================================
+
+{% if dns_cache %}
+# DNS caching enabled
+Cache=yes
+{% if dns_stale_retention_sec | default(0) > 0 and dns_feature_stale_retention | default(false) | bool %}
+# Serve stale records when upstream unreachable [systemd 246+]
+StaleRetentionSec={{ dns_stale_retention_sec }}
+{% endif %}
+{% if not dns_cache_from_localhost | default(true) and dns_feature_cache_from_localhost | default(false) | bool %}
+# Don't cache responses from localhost [systemd 248+]
+CacheFromLocalhost=no
+{% endif %}
+{% else %}
+# DNS caching disabled
+Cache=no
+{% endif %}
+
+# =============================================================================
+# Stub Resolver
+# =============================================================================
+
+{% if dns_stub_listener %}
+# Enable stub listener on 127.0.0.53
+DNSStubListener=yes
+{% if dns_stub_port != 53 and dns_feature_stub_listener_extra | default(true) | bool %}
+# Non-standard stub listener port [systemd 243+]
+DNSStubListenerExtra=127.0.0.53:{{ dns_stub_port }}
+{% endif %}
+{% if dns_feature_stub_listener_extra | default(true) | bool %}
+{% for addr in dns_stub_listener_extra | default([]) %}
+# Additional stub listener address [systemd 243+]
+DNSStubListenerExtra={{ addr }}
+{% endfor %}
+{% endif %}
+{% else %}
+# Stub listener disabled
+DNSStubListener=no
+{% endif %}
+
+# =============================================================================
+# Multicast DNS and LLMNR
+# =============================================================================
+
+{% if dns_mdns %}
+MulticastDNS=yes
+{% else %}
+MulticastDNS=no
+{% endif %}
+
+{% if dns_llmnr %}
+# WARNING: LLMNR has known security vulnerabilities
+LLMNR=yes
+{% else %}
+LLMNR=no
+{% endif %}
+
+# =============================================================================
+# Additional Options
+# =============================================================================
+
+{% if dns_read_etc_hosts %}
+ReadEtcHosts=yes
+{% else %}
+ReadEtcHosts=no
+{% endif %}
+
+{% if dns_custom_settings | length > 0 %}
+# Custom settings
+{% for key, value in dns_custom_settings.items() %}
+{{ key }}={{ value }}
+{% endfor %}
+{% endif %}
+
+# End of systemd-resolved configuration

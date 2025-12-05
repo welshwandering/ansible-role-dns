@@ -1,0 +1,124 @@
+---
+# dns role - verification tasks
+
+- name: Verify systemd-resolved is running
+  ansible.builtin.systemd_service:
+    name: systemd-resolved
+    state: started
+  check_mode: true
+  register: resolved_running
+  failed_when: resolved_running.changed
+  become: true
+  when: dns_resolved_enabled | bool
+  tags:
+    - dns
+    - verify
+
+- name: Verify /etc/resolv.conf is symlinked correctly
+  ansible.builtin.stat:
+    path: /etc/resolv.conf
+  register: resolv_verify
+  failed_when: >-
+    dns_manage_resolv_conf | bool and
+    dns_resolved_enabled | bool and
+    (not resolv_verify.stat.islnk or
+     resolv_verify.stat.lnk_source != '/run/systemd/resolve/stub-resolv.conf')
+  tags:
+    - dns
+    - verify
+
+- name: Verify configuration file exists
+  ansible.builtin.stat:
+    path: "/etc/systemd/resolved.conf.d/{{ dns_config_filename }}"
+  register: config_file_verify
+  failed_when:
+    - dns_resolved_enabled | bool
+    - not config_file_verify.stat.exists
+  tags:
+    - dns
+    - verify
+
+# =============================================================================
+# DNS Resolution Tests
+# =============================================================================
+
+- name: Test DNS resolution - localhost
+  ansible.builtin.command:
+    cmd: resolvectl query --legend=false localhost
+  register: dns_localhost_test
+  changed_when: false
+  failed_when: dns_localhost_test.rc != 0
+  become: true
+  when: dns_resolved_enabled | bool
+  tags:
+    - dns
+    - verify
+
+- name: Test DNS resolution - external domain
+  ansible.builtin.command:
+    cmd: resolvectl query --legend=false one.one.one.one
+  register: dns_external_test
+  changed_when: false
+  failed_when: false  # Don't fail if no network connectivity
+  become: true
+  when: dns_resolved_enabled | bool
+  tags:
+    - dns
+    - verify
+
+- name: Warn if external DNS resolution failed
+  ansible.builtin.debug:
+    msg: |
+      WARNING: External DNS resolution test failed.
+      This may indicate network connectivity issues or DNS misconfiguration.
+      Error: {{ dns_external_test.stderr | default('Unknown error') }}
+  when:
+    - dns_resolved_enabled | bool
+    - dns_external_test.rc | default(0) != 0
+  tags:
+    - dns
+    - verify
+
+# =============================================================================
+# Configuration Verification
+# =============================================================================
+
+- name: Get resolved status
+  ansible.builtin.command:
+    cmd: resolvectl status --no-pager
+  register: resolved_status
+  changed_when: false
+  become: true
+  when: dns_resolved_enabled | bool
+  tags:
+    - dns
+    - verify
+
+- name: Get DNS statistics
+  ansible.builtin.command:
+    cmd: resolvectl statistics
+  register: dns_statistics
+  changed_when: false
+  become: true
+  when: dns_resolved_enabled | bool
+  tags:
+    - dns
+    - verify
+
+- name: Display DNS configuration status
+  ansible.builtin.debug:
+    msg: |
+      DNS configuration complete:
+      - systemd-resolved: {{ 'running' if dns_resolved_enabled else 'disabled' }}
+      - Config file: /etc/systemd/resolved.conf.d/{{ dns_config_filename }}
+      - DNS servers: {{ dns_servers | join(', ') if dns_servers | length > 0 else 'network defaults' }}
+      - Fallback DNS: {{ dns_fallback_servers | join(', ') if dns_fallback_servers | length > 0 else 'none' }}
+      - DNSSEC: {{ dns_dnssec }}
+      - DNS-over-TLS: {{ dns_over_tls if dns_over_tls != false else 'disabled' }}
+      - Search domains: {{ dns_domains | join(', ') if dns_domains | length > 0 else 'none' }}
+      - Per-link DNS: {{ dns_link_dns | length }} interface(s) configured
+      - External resolution: {{ 'OK' if dns_external_test.rc | default(1) == 0 else 'FAILED (check connectivity)' }}
+    verbosity: 1
+  tags:
+    - dns
+    - verify

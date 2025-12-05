@@ -1,0 +1,253 @@
+---
+# Molecule verify playbook - tests the dns role was applied correctly
+# Note: Some tests are skipped in containers where /etc/resolv.conf and
+# /etc/hosts are bind-mounted and cannot be managed by the role.
+
+- name: Verify
+  hosts: all
+  become: true
+  gather_facts: false
+
+  vars:
+    # These match converge.yml settings for container testing
+    dns_manage_resolv_conf: false
+    dns_manage_hosts: false
+
+  tasks:
+    # =========================================================================
+    # Service Verification
+    # =========================================================================
+
+    - name: Check systemd-resolved is running
+      ansible.builtin.systemd_service:
+        name: systemd-resolved
+        state: started
+      check_mode: true
+      register: resolved_running
+      failed_when: resolved_running.changed
+
+    - name: Check systemd-resolved is enabled
+      ansible.builtin.systemd_service:
+        name: systemd-resolved
+        enabled: true
+      check_mode: true
+      register: resolved_enabled
+      failed_when: resolved_enabled.changed
+
+    - name: Check resolvectl is available
+      ansible.builtin.command: resolvectl --version
+      register: resolvectl_version
+      changed_when: false
+      failed_when: resolvectl_version.rc != 0
+
+    # =========================================================================
+    # Symlink Verification (skipped in containers)
+    # =========================================================================
+
+    - name: Verify /etc/resolv.conf is a symlink
+      ansible.builtin.stat:
+        path: /etc/resolv.conf
+      register: resolv_conf
+      failed_when: not resolv_conf.stat.islnk
+      when: dns_manage_resolv_conf | bool
+
+    - name: Verify /etc/resolv.conf points to stub resolver
+      ansible.builtin.stat:
+        path: /etc/resolv.conf
+      register: resolv_conf_target
+      failed_when: resolv_conf_target.stat.lnk_source != '/run/systemd/resolve/stub-resolv.conf'
+      when: dns_manage_resolv_conf | bool
+
+    # =========================================================================
+    # Configuration Verification
+    # =========================================================================
+
+    - name: Check configuration file exists
+      ansible.builtin.stat:
+        path: /etc/systemd/resolved.conf.d/dns.conf
+      register: config_file
+      failed_when: not config_file.stat.exists
+
+    - name: Verify configuration file permissions
+      ansible.builtin.stat:
+        path: /etc/systemd/resolved.conf.d/dns.conf
+      register: config_perms
+      failed_when: config_perms.stat.mode != '0644'
+
+    - name: Verify DNS servers in config
+      ansible.builtin.shell: grep -E '^DNS=' /etc/systemd/resolved.conf.d/dns.conf | grep -q '1.1.1.1'
+      register: dns_servers_check
+      changed_when: false
+      failed_when: dns_servers_check.rc != 0
+
+    - name: Verify fallback DNS in config
+      ansible.builtin.shell: grep -E '^FallbackDNS=' /etc/systemd/resolved.conf.d/dns.conf | grep -q '9.9.9.9'
+      register: fallback_check
+      changed_when: false
+      failed_when: fallback_check.rc != 0
+
+    - name: Verify DNSSEC setting
+      ansible.builtin.shell: grep -E '^DNSSEC=' /etc/systemd/resolved.conf.d/dns.conf | grep -q 'allow-downgrade'
+      register: dnssec_check
+      changed_when: false
+      failed_when: dnssec_check.rc != 0
+
+    - name: Verify DNS-over-TLS setting
+      ansible.builtin.shell: grep -E '^DNSOverTLS=' /etc/systemd/resolved.conf.d/dns.conf | grep -q 'opportunistic'
+      register: dot_check
+      changed_when: false
+      failed_when: dot_check.rc != 0
+
+    - name: Verify custom setting applied
+      ansible.builtin.shell: grep -q 'ResolveUnicastSingleLabel=yes' /etc/systemd/resolved.conf.d/dns.conf
+      register: custom_check
+      changed_when: false
+      failed_when: custom_check.rc != 0
+
+    # =========================================================================
+    # NSSwitch Verification
+    # =========================================================================
+
+    - name: Verify nsswitch.conf hosts line
+      ansible.builtin.shell: grep -E '^hosts:' /etc/nsswitch.conf | grep -q 'resolve'
+      register: nsswitch_check
+      changed_when: false
+      failed_when: nsswitch_check.rc != 0
+
+    # =========================================================================
+    # Hosts File Verification (skipped in containers)
+    # =========================================================================
+
+    - name: Verify custom /etc/hosts entry (testgateway)
+      ansible.builtin.shell: grep -q 'testgateway' /etc/hosts
+      register: hosts_check_1
+      changed_when: false
+      failed_when: hosts_check_1.rc != 0
+      when: dns_manage_hosts | bool
+
+    - name: Verify custom /etc/hosts entry (testdns)
+      ansible.builtin.shell: grep -q 'testdns' /etc/hosts
+      register: hosts_check_2
+      changed_when: false
+      failed_when: hosts_check_2.rc != 0
+      when: dns_manage_hosts | bool
+
+    - name: Verify managed block markers exist
+      ansible.builtin.shell: grep -q 'ANSIBLE DNS ROLE MANAGED BLOCK' /etc/hosts
+      register: managed_block_check
+      changed_when: false
+      failed_when: managed_block_check.rc != 0
+      when: dns_manage_hosts | bool
+
+    # =========================================================================
+    # DNS-SD Verification
+    # =========================================================================
+
+    - name: Check DNS-SD directory exists
+      ansible.builtin.stat:
+        path: /etc/systemd/dnssd
+      register: dnssd_dir
+      failed_when: not dnssd_dir.stat.exists
+
+    - name: Check HTTP service .dnssd file exists
+      ansible.builtin.stat:
+        path: /etc/systemd/dnssd/http.dnssd
+      register: http_dnssd
+      failed_when: not http_dnssd.stat.exists
+
+    - name: Check Prometheus service .dnssd file exists
+      ansible.builtin.stat:
+        path: /etc/systemd/dnssd/prometheus.dnssd
+      register: prometheus_dnssd
+      failed_when: not prometheus_dnssd.stat.exists
+
+    - name: Verify HTTP .dnssd file content
+      ansible.builtin.shell: |
+        grep -q 'Type=_http._tcp' /etc/systemd/dnssd/http.dnssd &&
+        grep -q 'Port=80' /etc/systemd/dnssd/http.dnssd
+      register: http_dnssd_content
+      changed_when: false
+      failed_when: http_dnssd_content.rc != 0
+
+    - name: Verify Prometheus .dnssd file content
+      ansible.builtin.shell: |
+        grep -q 'Type=_prometheus._tcp' /etc/systemd/dnssd/prometheus.dnssd &&
+        grep -q 'Port=9090' /etc/systemd/dnssd/prometheus.dnssd
+      register: prometheus_dnssd_content
+      changed_when: false
+      failed_when: prometheus_dnssd_content.rc != 0
+
+    - name: Verify TXT records in HTTP .dnssd
+      ansible.builtin.shell: grep -q 'TxtText=path=/' /etc/systemd/dnssd/http.dnssd
+      register: txt_record_check
+      changed_when: false
+      failed_when: txt_record_check.rc != 0
+
+    # =========================================================================
+    # mDNS Configuration Verification
+    # =========================================================================
+
+    - name: Verify mDNS is enabled in resolved.conf
+      ansible.builtin.shell: grep -q 'MulticastDNS=yes' /etc/systemd/resolved.conf.d/dns.conf
+      register: mdns_check
+      changed_when: false
+      failed_when: mdns_check.rc != 0
+
+    # =========================================================================
+    # DNS Resolution Tests
+    # =========================================================================
+
+    - name: Test DNS resolution - localhost
+      ansible.builtin.command: resolvectl query --legend=false localhost
+      register: dns_localhost
+      changed_when: false
+      failed_when: dns_localhost.rc != 0
+
+    - name: Get resolved status
+      ansible.builtin.command: resolvectl status --no-pager
+      register: resolved_status
+      changed_when: false
+
+    # =========================================================================
+    # Metrics Verification
+    # =========================================================================
+
+    - name: Check metrics file exists
+      ansible.builtin.stat:
+        path: /var/lib/node_exporter/textfile_collector/dns.prom
+      register: metrics_file
+      failed_when: not metrics_file.stat.exists
+
+    - name: Verify metrics file content
+      ansible.builtin.shell: grep -q 'dns_enabled 1' /var/lib/node_exporter/textfile_collector/dns.prom
+      register: metrics_content
+      changed_when: false
+      failed_when: metrics_content.rc != 0
+
+    - name: Verify systemd version in metrics
+      ansible.builtin.shell: grep -q 'dns_systemd_version' /var/lib/node_exporter/textfile_collector/dns.prom
+      register: metrics_version
+      changed_when: false
+      failed_when: metrics_version.rc != 0
+
+    # =========================================================================
+    # Results Summary
+    # =========================================================================
+
+    - name: Display verification results
+      ansible.builtin.debug:
+        msg:
+          - "resolvectl version: {{ resolvectl_version.stdout_lines[0] }}"
+          - "systemd-resolved running and enabled"
+          - "Configuration file deployed with correct permissions"
+          - "DNS servers configured (1.1.1.1, 8.8.8.8)"
+          - "Fallback DNS configured (9.9.9.9)"
+          - "DNSSEC: allow-downgrade"
+          - "DNS-over-TLS: opportunistic"
+          - "mDNS: enabled"
+          - "DNS-SD services: http, prometheus"
+          - "Custom settings applied"
+          - "nsswitch.conf configured"
+          - "Metrics exported with systemd version"
+          - "All verification checks passed!"
+          - "(Note: /etc/resolv.conf and /etc/hosts tests skipped in container)"

@@ -1,0 +1,20 @@
+# mDNS configuration for {{ item }}
+# =============================================================================
+# Managed by Ansible - DO NOT EDIT MANUALLY
+# Role: dns
+# =============================================================================
+#
+# This drop-in enables Multicast DNS (mDNS) on the {{ item }} interface.
+# mDNS is required for DNS-SD service advertisement to work.
+#
+# This file is placed in: /etc/systemd/network/{{ item }}.network.d/
+# It extends the main .network file for this interface.
+#
+# =============================================================================
+
+[Network]
+# Enable Multicast DNS on this interface
+# - yes: Enable mDNS resolving and responding
+# - resolve: Enable mDNS resolving only (no responding)
+# - no: Disable mDNS on this interface
+MulticastDNS=yes

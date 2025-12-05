@@ -1,0 +1,89 @@
+---
+# Molecule converge playbook - applies the dns role
+
+- name: Converge
+  hosts: all
+  become: true
+  gather_facts: true
+
+  pre_tasks:
+    # Minimal pre-tasks - the role now handles package installation
+    - name: Install minimal dependencies for Ansible
+      ansible.builtin.apt:
+        name:
+          - python3
+          - python3-apt
+          - dbus
+        state: present
+        update_cache: true
+        cache_valid_time: 3600
+      when: ansible_os_family == "Debian"
+
+  roles:
+    - role: dns
+      vars:
+        # Core settings
+        dns_enabled: true
+        dns_resolved_enabled: true
+        dns_install_package: true
+        dns_disable_conflicts: true
+
+        # Container-specific: skip bind-mounted file management in Docker
+        dns_manage_resolv_conf: false
+        dns_manage_hosts: false
+
+        # DNS servers
+        dns_servers:
+          - 1.1.1.1
+          - 8.8.8.8
+        dns_fallback_servers:
+          - 9.9.9.9
+
+        # Security
+        dns_dnssec: allow-downgrade
+        dns_over_tls: opportunistic
+
+        # Caching
+        dns_cache: true
+        dns_stale_retention_sec: 60
+        dns_cache_from_localhost: true
+
+        # Stub listener
+        dns_stub_listener: true
+        dns_stub_listener_extra:
+          - "127.0.0.54"
+
+        # mDNS and DNS-SD
+        dns_mdns: true
+        dns_mdns_interfaces: []  # No real interfaces in container
+        dns_sd_enabled: true
+        dns_sd_services:
+          - name: "%H Web Server"
+            type: "_http._tcp"
+            port: 80
+            txt:
+              - "path=/"
+              - "test=molecule"
+          - name: "%H Prometheus"
+            type: "_prometheus._tcp"
+            port: 9090
+
+        # LLMNR (disabled for security)
+        dns_llmnr: false
+
+        # Hosts file
+        dns_hosts_entries:
+          - ip: 10.0.0.1
+            names:
+              - testgateway
+              - testgateway.example.com
+          - ip: 10.0.0.2
+            names:
+              - testdns
+
+        # Advanced
+        dns_cleanup_old_configs: true
+        dns_validate_ips: true
+        dns_config_filename: "dns.conf"
+        dns_custom_settings:
+          ResolveUnicastSingleLabel: "yes"

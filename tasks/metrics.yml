@@ -1,0 +1,26 @@
+---
+# dns role - metrics export tasks
+
+- name: Create node_exporter textfile collector directory
+  ansible.builtin.file:
+    path: /var/lib/node_exporter/textfile_collector
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+  become: true
+  tags:
+    - dns
+    - metrics
+
+- name: Export DNS configuration metrics
+  ansible.builtin.template:
+    src: dns_config.prom.j2
+    dest: /var/lib/node_exporter/textfile_collector/dns.prom
+    owner: root
+    group: root
+    mode: '0644'
+  become: true
+  tags:
+    - dns
+    - metrics

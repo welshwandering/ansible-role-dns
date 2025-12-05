@@ -1,0 +1,23 @@
+---
+# dns role handlers
+
+- name: Restart systemd-resolved
+  ansible.builtin.systemd_service:
+    name: systemd-resolved
+    state: restarted
+    daemon_reload: true
+  become: true
+
+- name: Reload systemd-networkd
+  ansible.builtin.systemd_service:
+    name: systemd-networkd
+    state: reloaded
+    daemon_reload: true
+  become: true
+  failed_when: false  # May not be running if NetworkManager is used
+
+- name: Flush DNS cache
+  ansible.builtin.command:
+    cmd: resolvectl flush-caches
+  become: true
+  changed_when: true

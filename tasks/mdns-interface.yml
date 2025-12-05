@@ -1,0 +1,130 @@
+---
+# dns role - per-interface mDNS configuration tasks
+#
+# Creates systemd-networkd drop-in configs to enable mDNS on specific
+# interfaces. Required for DNS-SD service advertisement to work.
+#
+# Note: This uses systemd-networkd drop-ins. If NetworkManager is managing
+# the interface, you may need to configure mDNS via nmcli instead:
+#   nmcli connection modify <conn> connection.mdns yes
+
+# =============================================================================
+# Directory Setup
+# =============================================================================
+
+- name: Ensure systemd-networkd drop-in directories exist
+  ansible.builtin.file:
+    path: "/etc/systemd/network/{{ item }}.network.d"
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+  loop: "{{ dns_mdns_interfaces }}"
+  become: true
+  tags:
+    - dns
+    - mdns
+    - config
+
+# =============================================================================
+# Deploy mDNS Configuration
+# =============================================================================
+
+- name: Deploy mDNS interface configuration
+  ansible.builtin.template:
+    src: mdns-interface.conf.j2
+    dest: "/etc/systemd/network/{{ item }}.network.d/50-mdns.conf"
+    owner: root
+    group: root
+    mode: '0644'
+  loop: "{{ dns_mdns_interfaces }}"
+  become: true
+  notify:
+    - Reload systemd-networkd
+    - Restart systemd-resolved
+  tags:
+    - dns
+    - mdns
+    - config
+
+# =============================================================================
+# Cleanup
+# =============================================================================
+
+- name: Find all mDNS drop-in configs
+  ansible.builtin.find:
+    paths: /etc/systemd/network
+    patterns: "50-mdns.conf"
+    recurse: true
+  register: existing_mdns_configs
+  become: true
+  tags:
+    - dns
+    - mdns
+    - cleanup
+
+- name: Build list of expected mDNS config paths
+  ansible.builtin.set_fact:
+    dns_mdns_expected_paths: >-
+      {{
+        dns_mdns_interfaces
+        | map('regex_replace', '^(.*)$', '/etc/systemd/network/\1.network.d/50-mdns.conf')
+        | list
+      }}
+  tags:
+    - dns
+    - mdns
+    - cleanup
+
+- name: Remove orphaned mDNS configs
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: absent
+  loop: "{{ existing_mdns_configs.files | default([]) }}"
+  loop_control:
+    label: "{{ item.path }}"
+  when: item.path not in dns_mdns_expected_paths
+  become: true
+  notify:
+    - Reload systemd-networkd
+  tags:
+    - dns
+    - mdns
+    - cleanup
+
+# =============================================================================
+# Verify Network Manager Compatibility
+# =============================================================================
+
+- name: Check if NetworkManager is active
+  ansible.builtin.systemd_service:
+    name: NetworkManager
+  register: nm_service_check
+  failed_when: false
+  check_mode: true
+  become: true
+  tags:
+    - dns
+    - mdns
+
+- name: Warn about NetworkManager if interfaces are configured
+  ansible.builtin.debug:
+    msg: |
+      WARNING: NetworkManager is running and mDNS interfaces are configured.
+
+      systemd-networkd drop-ins may not take effect if NetworkManager manages
+      these interfaces: {{ dns_mdns_interfaces | join(', ') }}
+
+      To enable mDNS via NetworkManager instead, run:
+      {% for iface in dns_mdns_interfaces %}
+        nmcli connection modify "{{ iface }}" connection.mdns yes
+      {% endfor %}
+
+      Or disable NetworkManager and use systemd-networkd exclusively.
+  when:
+    - dns_mdns_interfaces | length > 0
+    - nm_service_check.status is defined
+    - nm_service_check.status.ActiveState == 'active'
+  tags:
+    - dns
+    - mdns

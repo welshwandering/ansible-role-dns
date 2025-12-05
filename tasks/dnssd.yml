@@ -1,0 +1,152 @@
+---
+# dns role - DNS Service Discovery (DNS-SD) tasks
+#
+# Manages .dnssd files in /etc/systemd/dnssd/ for service advertisement
+# via mDNS. Requires dns_mdns: true and per-interface mDNS enabled.
+
+# =============================================================================
+# Prerequisites Check
+# =============================================================================
+
+- name: Warn if mDNS is disabled but DNS-SD is enabled
+  ansible.builtin.debug:
+    msg: |
+      WARNING: DNS-SD is enabled but mDNS is disabled (dns_mdns: {{ dns_mdns }}).
+      DNS-SD requires mDNS for service advertisement on the local network.
+
+      To fix this, set:
+        dns_mdns: true
+        dns_mdns_interfaces:
+          - eth0  # or your primary network interface
+
+      Without mDNS, services will be configured but not advertised.
+  when:
+    - dns_sd_enabled | bool
+    - not (dns_mdns | bool) and dns_mdns != 'resolve'
+  tags:
+    - dns
+    - dnssd
+
+- name: Warn if no mDNS interfaces configured
+  ansible.builtin.debug:
+    msg: |
+      WARNING: DNS-SD is enabled but no mDNS interfaces are configured.
+      Services will be configured but may not be advertised on the network.
+
+      To fix this, set:
+        dns_mdns_interfaces:
+          - eth0  # or your primary network interface
+
+      This creates systemd-networkd drop-ins to enable mDNS per-interface.
+  when:
+    - dns_sd_enabled | bool
+    - dns_mdns_interfaces | length == 0
+  tags:
+    - dns
+    - dnssd
+
+# =============================================================================
+# Directory Setup
+# =============================================================================
+
+- name: Ensure /etc/systemd/dnssd directory exists
+  ansible.builtin.file:
+    path: /etc/systemd/dnssd
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+  become: true
+  tags:
+    - dns
+    - dnssd
+
+# =============================================================================
+# Cleanup Unmanaged Services
+# =============================================================================
+
+- name: Find existing .dnssd files
+  ansible.builtin.find:
+    paths: /etc/systemd/dnssd
+    patterns: "*.dnssd"
+  register: existing_dnssd_files
+  become: true
+  when: dns_sd_cleanup | bool
+  tags:
+    - dns
+    - dnssd
+    - cleanup
+
+- name: Build list of managed service filenames
+  ansible.builtin.set_fact:
+    dns_sd_managed_files: >-
+      {{
+        dns_sd_services
+        | map(attribute='type')
+        | map('regex_replace', '^_([^.]+)\\..*$', '\1.dnssd')
+        | list
+      }}
+  when: dns_sd_cleanup | bool
+  tags:
+    - dns
+    - dnssd
+    - cleanup
+
+- name: Remove unmanaged .dnssd files
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: absent
+  loop: "{{ existing_dnssd_files.files | default([]) }}"
+  loop_control:
+    label: "{{ item.path | basename }}"
+  when:
+    - dns_sd_cleanup | bool
+    - item.path | basename not in dns_sd_managed_files
+  become: true
+  notify: Restart systemd-resolved
+  tags:
+    - dns
+    - dnssd
+    - cleanup
+
+# =============================================================================
+# Deploy DNS-SD Service Files
+# =============================================================================
+
+- name: Deploy DNS-SD service files
+  ansible.builtin.template:
+    src: dnssd-service.j2
+    dest: "/etc/systemd/dnssd/{{ item.type | regex_replace('^_([^.]+)\\..*$', '\\1') }}.dnssd"
+    owner: root
+    group: root
+    mode: '0644'
+  loop: "{{ dns_sd_services }}"
+  loop_control:
+    label: "{{ item.type }} -> {{ item.name }}"
+  become: true
+  notify: Restart systemd-resolved
+  tags:
+    - dns
+    - dnssd
+
+# =============================================================================
+# Summary
+# =============================================================================
+
+- name: Display DNS-SD configuration summary
+  ansible.builtin.debug:
+    msg: |
+      DNS-SD configured with {{ dns_sd_services | length }} service(s):
+      {% for svc in dns_sd_services %}
+      - {{ svc.type }}: {{ svc.name }} on port {{ svc.port }}
+      {% endfor %}
+
+      Services are advertised via mDNS on: {{ dns_mdns_interfaces | join(', ') | default('(no interfaces configured)') }}
+
+      To discover services from another machine:
+        resolvectl service {{ dns_sd_services[0].type | default('_http._tcp') }}.local
+    verbosity: 1
+  when: dns_sd_services | length > 0
+  tags:
+    - dns
+    - dnssd

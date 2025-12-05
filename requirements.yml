@@ -1,0 +1,5 @@
+---
+# Ansible collection requirements for dns role
+collections:
+  - name: ansible.utils
+    version: ">=2.0.0"

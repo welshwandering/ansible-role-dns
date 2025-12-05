@@ -1,0 +1,189 @@
+---
+# dns role - conflicting resolver management tasks
+#
+# Safely disables DNS resolvers that conflict with systemd-resolved:
+# - resolvconf: Manages /etc/resolv.conf (conflicts with symlink)
+# - avahi-daemon: mDNS responder (conflicts with DNS-SD)
+# - dnsmasq: Local DNS server (conflicts with stub listener on port 53)
+# - unbound: Recursive resolver (conflicts with local resolver role)
+
+# =============================================================================
+# resolvconf Package Removal
+# =============================================================================
+# resolvconf manages /etc/resolv.conf which conflicts with systemd-resolved's
+# symlink to /run/systemd/resolve/stub-resolv.conf
+
+- name: Check if resolvconf is installed
+  ansible.builtin.package_facts:
+    manager: auto
+  tags:
+    - dns
+    - conflicts
+
+- name: Remove resolvconf package (Debian/Ubuntu)
+  ansible.builtin.apt:
+    name:
+      - resolvconf
+      - openresolv
+    state: absent
+    purge: true
+  become: true
+  when:
+    - dns_disable_conflicts | bool
+    - dns_remove_resolvconf | bool
+    - ansible_os_family == "Debian"
+    - "'resolvconf' in ansible_facts.packages or 'openresolv' in ansible_facts.packages"
+  tags:
+    - dns
+    - conflicts
+
+# =============================================================================
+# Avahi Daemon (mDNS conflict)
+# =============================================================================
+# Avahi and systemd-resolved cannot both respond to mDNS queries.
+# Only disable Avahi if we're using DNS-SD (dns_sd_enabled).
+
+- name: Check if avahi-daemon service exists
+  ansible.builtin.systemd_service:
+    name: avahi-daemon
+  register: avahi_service_check
+  failed_when: false
+  check_mode: true
+  become: true
+  tags:
+    - dns
+    - conflicts
+
+- name: Stop and disable avahi-daemon (conflicts with DNS-SD)
+  ansible.builtin.systemd_service:
+    name: avahi-daemon
+    state: stopped
+    enabled: false
+    masked: true
+  become: true
+  when:
+    - dns_disable_conflicts | bool
+    - dns_disable_avahi | bool
+    - avahi_service_check.status is defined
+    - avahi_service_check.status.LoadState != 'not-found'
+  notify: Restart systemd-resolved
+  tags:
+    - dns
+    - conflicts
+
+- name: Display avahi-daemon status
+  ansible.builtin.debug:
+    msg: |
+      Avahi daemon has been disabled because dns_sd_enabled is true.
+      systemd-resolved will handle mDNS/DNS-SD instead.
+      To keep Avahi, set dns_disable_avahi: false (but DNS-SD may not work).
+  when:
+    - dns_disable_conflicts | bool
+    - dns_disable_avahi | bool
+    - avahi_service_check.status is defined
+    - avahi_service_check.status.LoadState != 'not-found'
+  tags:
+    - dns
+    - conflicts
+
+# =============================================================================
+# dnsmasq (Port 53 conflict)
+# =============================================================================
+# dnsmasq listens on port 53 which conflicts with systemd-resolved's stub
+# listener. Only disable if explicitly requested (may be used for DHCP only).
+
+- name: Check if dnsmasq service exists
+  ansible.builtin.systemd_service:
+    name: dnsmasq
+  register: dnsmasq_service_check
+  failed_when: false
+  check_mode: true
+  become: true
+  when: dns_disable_dnsmasq | bool
+  tags:
+    - dns
+    - conflicts
+
+- name: Stop and disable dnsmasq (conflicts with stub listener)
+  ansible.builtin.systemd_service:
+    name: dnsmasq
+    state: stopped
+    enabled: false
+  become: true
+  when:
+    - dns_disable_conflicts | bool
+    - dns_disable_dnsmasq | bool
+    - dnsmasq_service_check.status is defined
+    - dnsmasq_service_check.status.LoadState != 'not-found'
+  notify: Restart systemd-resolved
+  tags:
+    - dns
+    - conflicts
+
+# =============================================================================
+# Unbound (Local resolver conflict)
+# =============================================================================
+# Unbound is a validating recursive resolver that conflicts with
+# systemd-resolved's role as the local resolver.
+
+- name: Check if unbound service exists
+  ansible.builtin.systemd_service:
+    name: unbound
+  register: unbound_service_check
+  failed_when: false
+  check_mode: true
+  become: true
+  when: dns_disable_unbound | bool
+  tags:
+    - dns
+    - conflicts
+
+- name: Stop and disable unbound (conflicts with local resolver)
+  ansible.builtin.systemd_service:
+    name: unbound
+    state: stopped
+    enabled: false
+  become: true
+  when:
+    - dns_disable_conflicts | bool
+    - dns_disable_unbound | bool
+    - unbound_service_check.status is defined
+    - unbound_service_check.status.LoadState != 'not-found'
+  notify: Restart systemd-resolved
+  tags:
+    - dns
+    - conflicts
+
+# =============================================================================
+# Port 53 Conflict Check
+# =============================================================================
+# Warn if something else is using port 53 (but don't fail)
+
+- name: Check if port 53 is in use
+  ansible.builtin.shell: |
+    set -o pipefail
+    ss -tlnp 'sport = :53' 2>/dev/null | grep -v systemd-resolve || true
+  args:
+    executable: /bin/bash
+  register: port_53_check
+  changed_when: false
+  become: true
+  when: dns_stub_listener | bool
+  tags:
+    - dns
+    - conflicts
+
+- name: Warn if port 53 is in use by another process
+  ansible.builtin.debug:
+    msg: |
+      WARNING: Port 53 is in use by another process:
+      {{ port_53_check.stdout }}
+
+      This may conflict with systemd-resolved's stub listener.
+      Consider disabling the conflicting service or set dns_stub_listener: false.
+  when:
+    - dns_stub_listener | bool
+    - port_53_check.stdout | length > 0
+  tags:
+    - dns
+    - conflicts
