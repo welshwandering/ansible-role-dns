@@ -173,14 +173,14 @@
 - name: Validate per-link DNS server addresses
   ansible.builtin.assert:
     that:
-      - server | regex_search('^[0-9a-fA-F:.]+(?:#[0-9]+)?$')
-    fail_msg: "Invalid per-link DNS server address: {{ server }} for interface {{ item.interface }}"
+      - server | regex_search('^[0-9a-fA-F:.]+(?:#[0-9a-zA-Z.-]+)?$') is not none
+    fail_msg: "Invalid per-link DNS server address: {{ server }} for interface {{ item.0.interface }}"
     quiet: true
-  loop: "{{ dns_link_dns }}"
+  loop: "{{ dns_link_dns | subelements('servers') }}"
   loop_control:
-    label: "{{ item.interface }}"
+    label: "{{ item.0.interface }}: {{ item.1 }}"
   vars:
-    server: "{{ item.servers | join(' ') }}"
+    server: "{{ item.1 }}"
   when:
     - dns_validate_ips | bool
     - dns_link_dns | length > 0

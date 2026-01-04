@@ -3,8 +3,8 @@
 
 galaxy_info:
   role_name: dns
-  namespace: haven
-  author: Haven Contributors
+  namespace: welshwandering
+  author: Gravitino LLC
   description: Production-ready systemd-resolved configuration with DNSSEC, DNS-over-TLS, split-horizon DNS, and security hardening
   license: MIT
   min_ansible_version: "2.15"

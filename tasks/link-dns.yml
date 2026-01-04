@@ -36,13 +36,16 @@
   loop_control:
     label: "{{ item.item.interface }}"
   register: link_dns_result
-  changed_when: true
+  changed_when: link_dns_result.rc == 0
   failed_when: link_dns_result.rc != 0
   become: true
   when:
     - item.rc is defined
     - item.rc == 0
-    - item.item.servers | sort | join(' ') not in item.stdout
+    - item.item.servers | sort != _current_servers | sort
+  vars:
+    # Extract servers from output like "Link 2 (eth0): 1.1.1.1 8.8.8.8"
+    _current_servers: "{{ item.stdout | regex_replace('^.*:', '') | trim | split(' ') | reject('eq', '') | list }}"
   tags:
     - dns
     - config
@@ -78,17 +81,16 @@
   loop_control:
     label: "{{ item.item.interface }}"
   register: link_domain_result
-  changed_when: true
+  changed_when: link_domain_result.rc == 0
   failed_when: link_domain_result.rc != 0
   become: true
   when:
     - item.rc is defined
     - item.rc == 0
-    - not (item.item.domains | sort | difference(_current_domains) | length == 0 and
-           _current_domains | difference(item.item.domains | sort) | length == 0)
+    - item.item.domains | sort != _current_domains | sort
   vars:
     # Extract domains from output like "Link 2 (eth0): ~corp.example.com ~internal"
-    _current_domains: "{{ item.stdout | regex_replace('^.*:', '') | trim | split(' ') | reject('eq', '') | list | sort }}"
+    _current_domains: "{{ item.stdout | regex_replace('^.*:', '') | trim | split(' ') | reject('eq', '') | list }}"
   tags:
     - dns
     - config
