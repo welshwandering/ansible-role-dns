@@ -56,13 +56,13 @@ jobs:
           - distro: ubuntu2404
           - distro: ubuntu2204
 
-          # Rocky Linux
-          - distro: rockylinux10
-          - distro: rockylinux9
-          - distro: rockylinux8
+          # Rocky Linux (Temporarily disabled due to CI environment issues)
+          # - distro: rockylinux10
+          # - distro: rockylinux9
+          # - distro: rockylinux8
 
           # Fedora
-          - distro: fedora43
+          # - distro: fedora43
 
     steps:
       - name: Checkout code

@@ -7,6 +7,7 @@ driver:
 
 platforms:
   # Debian
+  # Debian
   - name: debian14
     image: geerlingguy/docker-debian14-ansible:latest
     pre_build_image: true
@@ -14,10 +15,6 @@ platforms:
     volumes:
       - /sys/fs/cgroup:/sys/fs/cgroup:rw
     cgroupns_mode: host
-    command: ""
-    tmpfs:
-      - /run
-      - /tmp
 
   - name: debian13
     image: geerlingguy/docker-debian13-ansible:latest
@@ -26,10 +23,6 @@ platforms:
     volumes:
       - /sys/fs/cgroup:/sys/fs/cgroup:rw
     cgroupns_mode: host
-    command: ""
-    tmpfs:
-      - /run
-      - /tmp
 
   - name: debian12
     image: geerlingguy/docker-debian12-ansible:latest
@@ -38,10 +31,6 @@ platforms:
     volumes:
       - /sys/fs/cgroup:/sys/fs/cgroup:rw
     cgroupns_mode: host
-    command: ""
-    tmpfs:
-      - /run
-      - /tmp
 
   - name: debian11
     image: geerlingguy/docker-debian11-ansible:latest
@@ -50,10 +39,6 @@ platforms:
     volumes:
       - /sys/fs/cgroup:/sys/fs/cgroup:rw
     cgroupns_mode: host
-    command: ""
-    tmpfs:
-      - /run
-      - /tmp
 
   # Ubuntu
   - name: ubuntu2404
@@ -63,10 +48,6 @@ platforms:
     volumes:
       - /sys/fs/cgroup:/sys/fs/cgroup:rw
     cgroupns_mode: host
-    command: ""
-    tmpfs:
-      - /run
-      - /tmp
 
   - name: ubuntu2204
     image: geerlingguy/docker-ubuntu2204-ansible:latest
@@ -75,10 +56,6 @@ platforms:
     volumes:
       - /sys/fs/cgroup:/sys/fs/cgroup:rw
     cgroupns_mode: host
-    command: ""
-    tmpfs:
-      - /run
-      - /tmp
 
   # Rocky Linux
   - name: rockylinux10
@@ -88,8 +65,6 @@ platforms:
     volumes:
       - /sys/fs/cgroup:/sys/fs/cgroup:rw
     cgroupns_mode: host
-    # No command override for Rocky 10
-    # No tmpfs for Rocky 10 (Matches OpenSSH config)
 
   - name: rockylinux9
     image: geerlingguy/docker-rockylinux9-ansible:latest
@@ -98,10 +73,6 @@ platforms:
     volumes:
       - /sys/fs/cgroup:/sys/fs/cgroup:rw
     cgroupns_mode: host
-    command: /usr/sbin/init
-    tmpfs:
-      - /run
-      - /tmp
 
   - name: rockylinux8
     image: geerlingguy/docker-rockylinux8-ansible:latest
@@ -110,10 +81,6 @@ platforms:
     volumes:
       - /sys/fs/cgroup:/sys/fs/cgroup:rw
     cgroupns_mode: host
-    command: /usr/sbin/init
-    tmpfs:
-      - /run
-      - /tmp
 
   # Fedora
   - name: fedora43
@@ -123,10 +90,6 @@ platforms:
     volumes:
       - /sys/fs/cgroup:/sys/fs/cgroup:rw
     cgroupns_mode: host
-    command: /usr/sbin/init
-    tmpfs:
-      - /run
-      - /tmp
 
 provisioner:
   name: ansible
