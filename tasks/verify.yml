@@ -2,12 +2,11 @@
 # dns role - verification tasks
 
 - name: Verify systemd-resolved is running
-  ansible.builtin.systemd_service:
-    name: systemd-resolved
-    state: started
-  check_mode: true
+  ansible.builtin.command:
+    cmd: systemctl is-active systemd-resolved
   register: resolved_running
-  failed_when: resolved_running.changed
+  changed_when: false
+  failed_when: resolved_running.rc != 0
   when: dns_resolved_enabled | bool
   tags:
     - dns
