@@ -49,24 +49,24 @@ jobs:
           # Debian
           - distro: debian14
             image: geerlingguy/docker-debian14-ansible:latest
-            command: /lib/systemd/systemd
+            command: ""
           - distro: debian13
             image: geerlingguy/docker-debian13-ansible:latest
-            command: /lib/systemd/systemd
+            command: ""
           - distro: debian12
             image: geerlingguy/docker-debian12-ansible:latest
-            command: /lib/systemd/systemd
+            command: ""
           - distro: debian11
             image: geerlingguy/docker-debian11-ansible:latest
-            command: /lib/systemd/systemd
+            command: ""
 
           # Ubuntu
           - distro: ubuntu2404
             image: geerlingguy/docker-ubuntu2404-ansible:latest
-            command: /lib/systemd/systemd
+            command: ""
           - distro: ubuntu2204
             image: geerlingguy/docker-ubuntu2204-ansible:latest
-            command: /lib/systemd/systemd
+            command: ""
 
           # Rocky Linux
           - distro: rockylinux10
