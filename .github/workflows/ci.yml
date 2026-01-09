@@ -54,7 +54,6 @@ jobs:
           - ubuntu2204
           - rockylinux10
           - rockylinux9
-          - rockylinux8
           - fedora43
 
     steps:
