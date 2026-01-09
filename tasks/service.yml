@@ -3,7 +3,7 @@
 
 - name: Check if systemd-resolved is active
   ansible.builtin.command:
-    cmd: systemctl is-active systemd-resolved
+    cmd: systemctl is-active systemd-resolved  # noqa: command-instead-of-module
   register: resolved_active
   failed_when: false
   changed_when: false
@@ -15,7 +15,8 @@
 
 - name: Start systemd-resolved
   ansible.builtin.command:
-    cmd: systemctl start systemd-resolved
+    cmd: systemctl start systemd-resolved  # noqa: command-instead-of-module
+  changed_when: true
   when:
     - dns_resolved_enabled | bool
     - resolved_active.rc != 0
@@ -25,7 +26,7 @@
 
 - name: Check if systemd-resolved is enabled
   ansible.builtin.command:
-    cmd: systemctl is-enabled systemd-resolved
+    cmd: systemctl is-enabled systemd-resolved  # noqa: command-instead-of-module
   register: resolved_enabled
   failed_when: false
   changed_when: false
@@ -37,7 +38,8 @@
 
 - name: Enable systemd-resolved
   ansible.builtin.command:
-    cmd: systemctl enable systemd-resolved
+    cmd: systemctl enable systemd-resolved  # noqa: command-instead-of-module
+  changed_when: true
   when:
     - dns_resolved_enabled | bool
     - resolved_enabled.rc != 0
@@ -47,7 +49,7 @@
 
 - name: Disable systemd-resolved if disabled
   ansible.builtin.command:
-    cmd: systemctl disable --now systemd-resolved
+    cmd: systemctl disable --now systemd-resolved  # noqa: command-instead-of-module
   when: not (dns_resolved_enabled | bool)
   changed_when: true
   failed_when: false
