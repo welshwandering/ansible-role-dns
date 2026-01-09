@@ -1,0 +1,12 @@
+# .ansible-lint
+profile: min
+warn_list:
+  - experimental
+  - complexity
+  - schema        # Metadata schema issues often flakys
+
+mock_roles:
+  - dns
+
+exclude_paths:
+  - molecule/

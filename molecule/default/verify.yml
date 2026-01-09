@@ -75,31 +75,47 @@
       failed_when: config_perms.stat.mode != '0644'
 
     - name: Verify DNS servers in config
-      ansible.builtin.shell: grep -E '^DNS=' /etc/systemd/resolved.conf.d/dns.conf | grep -q '1.1.1.1'
+      ansible.builtin.shell: |
+        set -o pipefail
+        grep -E '^DNS=' /etc/systemd/resolved.conf.d/dns.conf | grep -q '1.1.1.1'
+      args:
+        executable: /bin/bash
       register: dns_servers_check
       changed_when: false
       failed_when: dns_servers_check.rc != 0
 
     - name: Verify fallback DNS in config
-      ansible.builtin.shell: grep -E '^FallbackDNS=' /etc/systemd/resolved.conf.d/dns.conf | grep -q '9.9.9.9'
+      ansible.builtin.shell: |
+        set -o pipefail
+        grep -E '^FallbackDNS=' /etc/systemd/resolved.conf.d/dns.conf | grep -q '9.9.9.9'
+      args:
+        executable: /bin/bash
       register: fallback_check
       changed_when: false
       failed_when: fallback_check.rc != 0
 
     - name: Verify DNSSEC setting
-      ansible.builtin.shell: grep -E '^DNSSEC=' /etc/systemd/resolved.conf.d/dns.conf | grep -q 'allow-downgrade'
+      ansible.builtin.shell: |
+        set -o pipefail
+        grep -E '^DNSSEC=' /etc/systemd/resolved.conf.d/dns.conf | grep -q 'allow-downgrade'
+      args:
+        executable: /bin/bash
       register: dnssec_check
       changed_when: false
       failed_when: dnssec_check.rc != 0
 
     - name: Verify DNS-over-TLS setting
-      ansible.builtin.shell: grep -E '^DNSOverTLS=' /etc/systemd/resolved.conf.d/dns.conf | grep -q 'opportunistic'
+      ansible.builtin.shell: |
+        set -o pipefail
+        grep -E '^DNSOverTLS=' /etc/systemd/resolved.conf.d/dns.conf | grep -q 'opportunistic'
+      args:
+        executable: /bin/bash
       register: dot_check
       changed_when: false
       failed_when: dot_check.rc != 0
 
     - name: Verify custom setting applied
-      ansible.builtin.shell: grep -q 'ResolveUnicastSingleLabel=yes' /etc/systemd/resolved.conf.d/dns.conf
+      ansible.builtin.command: grep -q 'ResolveUnicastSingleLabel=yes' /etc/systemd/resolved.conf.d/dns.conf
       register: custom_check
       changed_when: false
       failed_when: custom_check.rc != 0
@@ -109,7 +125,9 @@
     # =========================================================================
 
     - name: Verify nsswitch.conf hosts line
-      ansible.builtin.shell: grep -E '^hosts:' /etc/nsswitch.conf | grep -q 'resolve'
+      ansible.builtin.shell:
+        cmd: "set -o pipefail && grep '^hosts:' /etc/nsswitch.conf | grep 'resolve'"
+        executable: /bin/bash
       register: nsswitch_check
       changed_when: false
       failed_when: nsswitch_check.rc != 0
@@ -119,21 +137,21 @@
     # =========================================================================
 
     - name: Verify custom /etc/hosts entry (testgateway)
-      ansible.builtin.shell: grep -q 'testgateway' /etc/hosts
+      ansible.builtin.command: grep -q 'testgateway' /etc/hosts
       register: hosts_check_1
       changed_when: false
       failed_when: hosts_check_1.rc != 0
       when: dns_manage_hosts | bool
 
     - name: Verify custom /etc/hosts entry (testdns)
-      ansible.builtin.shell: grep -q 'testdns' /etc/hosts
+      ansible.builtin.command: grep -q 'testdns' /etc/hosts
       register: hosts_check_2
       changed_when: false
       failed_when: hosts_check_2.rc != 0
       when: dns_manage_hosts | bool
 
     - name: Verify managed block markers exist
-      ansible.builtin.shell: grep -q 'ANSIBLE DNS ROLE MANAGED BLOCK' /etc/hosts
+      ansible.builtin.command: grep -q 'ANSIBLE DNS ROLE MANAGED BLOCK' /etc/hosts
       register: managed_block_check
       changed_when: false
       failed_when: managed_block_check.rc != 0
@@ -163,22 +181,28 @@
 
     - name: Verify HTTP .dnssd file content
       ansible.builtin.shell: |
+        set -o pipefail
         grep -q 'Type=_http._tcp' /etc/systemd/dnssd/http.dnssd &&
         grep -q 'Port=80' /etc/systemd/dnssd/http.dnssd
+      args:
+        executable: /bin/bash
       register: http_dnssd_content
       changed_when: false
       failed_when: http_dnssd_content.rc != 0
 
     - name: Verify Prometheus .dnssd file content
       ansible.builtin.shell: |
+        set -o pipefail
         grep -q 'Type=_prometheus._tcp' /etc/systemd/dnssd/prometheus.dnssd &&
         grep -q 'Port=9090' /etc/systemd/dnssd/prometheus.dnssd
+      args:
+        executable: /bin/bash
       register: prometheus_dnssd_content
       changed_when: false
       failed_when: prometheus_dnssd_content.rc != 0
 
     - name: Verify TXT records in HTTP .dnssd
-      ansible.builtin.shell: grep -q 'TxtText=path=/' /etc/systemd/dnssd/http.dnssd
+      ansible.builtin.command: grep -q 'TxtText=path=/' /etc/systemd/dnssd/http.dnssd
       register: txt_record_check
       changed_when: false
       failed_when: txt_record_check.rc != 0
@@ -188,7 +212,7 @@
     # =========================================================================
 
     - name: Verify mDNS is enabled in resolved.conf
-      ansible.builtin.shell: grep -q 'MulticastDNS=yes' /etc/systemd/resolved.conf.d/dns.conf
+      ansible.builtin.command: grep -q 'MulticastDNS=yes' /etc/systemd/resolved.conf.d/dns.conf
       register: mdns_check
       changed_when: false
       failed_when: mdns_check.rc != 0
@@ -204,7 +228,9 @@
       failed_when: dns_localhost.rc != 0
 
     - name: Get resolved status
-      ansible.builtin.command: resolvectl status --no-pager
+      ansible.builtin.shell:
+        cmd: "set -o pipefail && resolvectl status | grep 'DNSOverTLS setting: opportunistic'"
+        executable: /bin/bash
       register: resolved_status
       changed_when: false
 
@@ -219,13 +245,13 @@
       failed_when: not metrics_file.stat.exists
 
     - name: Verify metrics file content
-      ansible.builtin.shell: grep -q 'dns_enabled 1' /var/lib/node_exporter/textfile_collector/dns.prom
+      ansible.builtin.command: grep -q 'dns_enabled 1' /var/lib/node_exporter/textfile_collector/dns.prom
       register: metrics_content
       changed_when: false
       failed_when: metrics_content.rc != 0
 
     - name: Verify systemd version in metrics
-      ansible.builtin.shell: grep -q 'dns_systemd_version' /var/lib/node_exporter/textfile_collector/dns.prom
+      ansible.builtin.command: grep -q 'dns_systemd_version' /var/lib/node_exporter/textfile_collector/dns.prom
       register: metrics_version
       changed_when: false
       failed_when: metrics_version.rc != 0

@@ -25,6 +25,8 @@ Thumbs.db
 
 # Ansible
 *.retry
+.ansible/
+.ansible/
 
 # Testing
 .pytest_cache/

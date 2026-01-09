@@ -65,12 +65,11 @@
     - validate
 
 - name: Check if systemd-resolved is masked
-  ansible.builtin.command:
-    cmd: systemctl is-enabled systemd-resolved
+  ansible.builtin.systemd_service:
+    name: systemd-resolved
   register: resolved_enabled_check
-  changed_when: false
   failed_when: false
-  check_mode: false
+  check_mode: true
   become: true
   tags:
     - dns

@@ -187,3 +187,37 @@
   tags:
     - dns
     - conflicts
+
+# =============================================================================
+# NetworkManager Configuration (RHEL/Rocky/Fedora)
+# =============================================================================
+# RHEL-based systems use NetworkManager by default. We need to tell it to use
+# systemd-resolved as the DNS backend to avoid conflicts and ensure proper
+# integration.
+
+- name: Create NetworkManager configuration directory
+  ansible.builtin.file:
+    path: /etc/NetworkManager/conf.d
+    state: directory
+    mode: '0755'
+  become: true
+  when: ansible_os_family == "RedHat"
+  tags:
+    - dns
+    - conflicts
+    - networkmanager
+
+- name: Configure NetworkManager to use systemd-resolved
+  ansible.builtin.copy:
+    dest: /etc/NetworkManager/conf.d/dns.conf
+    content: |
+      [main]
+      dns=systemd-resolved
+    mode: '0644'
+  become: true
+  when: ansible_os_family == "RedHat"
+  notify: Reload NetworkManager
+  tags:
+    - dns
+    - conflicts
+    - networkmanager

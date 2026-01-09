@@ -15,10 +15,20 @@ galaxy_info:
         - bullseye   # 11
         - bookworm   # 12
         - trixie     # 13
+        - forky      # 14
     - name: Ubuntu
       versions:
         - jammy      # 22.04
         - noble      # 24.04
+        - plucky     # 25.10
+    - name: EL
+      versions:
+        - "8"
+        - "9"
+        - "10"
+    - name: Fedora
+      versions:
+        - "43"
 
   galaxy_tags:
     - dns

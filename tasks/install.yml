@@ -28,10 +28,12 @@
   ansible.builtin.dnf:
     name: systemd-resolved
     state: present
+    update_cache: true
   become: true
   when:
     - ansible_os_family == "RedHat"
     - dns_install_package | bool
+    - ansible_distribution_major_version | int >= 8
   tags:
     - dns
     - install

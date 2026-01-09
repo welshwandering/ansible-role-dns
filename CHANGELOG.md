@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [Unreleased]
+
+## [1.1.0] - 2026-01-09
+
+### Added
+- **Platform Support**
+  - Rocky Linux 8, 9, 10
+  - Fedora 43
+  - Debian 13 (Trixie), 14 (Forky)
+  - Ubuntu 25.10 (Plucky)
+- **Features**
+  - NetworkManager integration for RHEL-based systems (automatically configures `dns=systemd-resolved` in `/etc/NetworkManager/conf.d/dns.conf`).
+- **Documentation**
+  - New `DISTRIBUTIONS.md` support matrix.
+  - New `AGENTS.md` for AI agent context.
+
 ## [1.0.0] - 2024-12-05
 
 ### Added

@@ -69,6 +69,10 @@ MIT
             port: 8123
 ```
 
+## Security & Compliance
+This role is designed to meet strict security and compliance requirements (NIST 800-53, PCI DSS 4.0).
+See [COMPLIANCE.md](COMPLIANCE.md) for a detailed control mapping and feature explanation.
+
 ## Requirements
 
 | Requirement | Version |
@@ -82,13 +86,26 @@ MIT
 
 | Distribution | Version | systemd | Feature Support |
 |-------------|---------|---------|-----------------|
-| Debian | 12 (Bookworm) | 252 | Full |
+| Distribution | Version | systemd | Feature Support |
+|-------------|---------|---------|-----------------|
+| Debian | 14 (Forky) | 258+ | Full |
 | Debian | 13 (Trixie) | 256 | Full |
-| Ubuntu | 24.04 (Noble) | 255 | Full |
+| Debian | 12 (Bookworm) | 252 | Full |
 | Debian | 11 (Bullseye) | 247 | Limited* |
+| Ubuntu | 25.10 (Plucky) | 258+ | Full |
+| Ubuntu | 24.04 (Noble) | 255 | Full |
 | Ubuntu | 22.04 (Jammy) | 249 | Limited* |
+| Rocky Linux | 10 | 256+ | Full (via NetworkManager) |
+| Rocky Linux | 9 | 252 | Full (via NetworkManager) |
+| Rocky Linux | 8 | 239 | Limited* (via NetworkManager) |
+| Fedora | 43 | 258+ | Full (via NetworkManager) |
 
 *Limited: No `StaleRetentionSec`, `CacheFromLocalhost`. Role auto-detects and skips.
+
+### RHEL / Rocky Linux Support
+On RHEL-based systems (Rocky, Alma, Fedora), **NetworkManager** is the default network renderer. This role automatically configures NetworkManager to use `systemd-resolved` as its DNS backend by creating `/etc/NetworkManager/conf.d/dns.conf`.
+- **Note**: Ensure `NetworkManager` package is installed (default on minimal installs).
+- **Note**: This role manages the `systemd-resolved` service, but DNS settings (search domains, servers) pushed via DHCP will be handled by NetworkManager and passed to resolved.
 
 ## Role Variables
 

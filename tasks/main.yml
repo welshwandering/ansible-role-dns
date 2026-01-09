@@ -4,6 +4,7 @@
 # Task structure:
 #   install.yml        - Package installation (systemd-resolved)
 #   conflicts.yml      - Disable conflicting resolvers (resolvconf, avahi, etc.)
+#                        and configure NetworkManager on RHEL
 #   validate.yml       - Pre-flight checks for systemd-resolved
 #   configure.yml      - resolved.conf and resolv.conf symlink
 #   link-dns.yml       - Per-interface DNS and split-horizon
