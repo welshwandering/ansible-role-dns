@@ -11,10 +11,15 @@ platforms:
     pre_build_image: true
     privileged: true
     volumes:
-      - /sys/fs/cgroup:/sys/fs/cgroup:rw
+      - /sys/fs/cgroup:/sys/fs/cgroup:ro
     cgroupns_mode: host
-    # No command override (Safe for Debian/Ubuntu systemd images)
-    # No tmpfs (Safe for Debian/Ubuntu)
+    command: "${MOLECULE_COMMAND:-}"
+    tmpfs:
+      - /run
+      - /run/lock
+      - /tmp
+    security_opts:
+      - seccomp=unconfined
 
 provisioner:
   name: ansible
