@@ -13,6 +13,7 @@ platforms:
     volumes:
       - /sys/fs/cgroup:/sys/fs/cgroup:rw
     cgroupns_mode: host
+    command: "${MOLECULE_COMMAND:-}"
 
 provisioner:
   name: ansible
