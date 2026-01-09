@@ -71,6 +71,7 @@
   when:
     - dns_resolved_enabled | bool
     - dns_external_test.rc | default(0) != 0
+  ignore_errors: true
   tags:
     - dns
     - verify

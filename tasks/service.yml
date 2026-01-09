@@ -1,22 +1,56 @@
 ---
 # dns role - service management tasks
 
-- name: Enable and start systemd-resolved
-  ansible.builtin.systemd_service:
-    name: systemd-resolved
-    enabled: true
-    state: started
+- name: Check if systemd-resolved is active
+  ansible.builtin.command:
+    cmd: systemctl is-active systemd-resolved
+  register: resolved_active
+  failed_when: false
+  changed_when: false
+  check_mode: false
   when: dns_resolved_enabled | bool
   tags:
     - dns
     - service
 
+- name: Start systemd-resolved
+  ansible.builtin.command:
+    cmd: systemctl start systemd-resolved
+  when:
+    - dns_resolved_enabled | bool
+    - resolved_active.rc != 0
+  tags:
+    - dns
+    - service
+
+- name: Check if systemd-resolved is enabled
+  ansible.builtin.command:
+    cmd: systemctl is-enabled systemd-resolved
+  register: resolved_enabled
+  failed_when: false
+  changed_when: false
+  check_mode: false
+  when: dns_resolved_enabled | bool
+  tags:
+    - dns
+    - service
+
+- name: Enable systemd-resolved
+  ansible.builtin.command:
+    cmd: systemctl enable systemd-resolved
+  when:
+    - dns_resolved_enabled | bool
+    - resolved_enabled.rc != 0
+  tags:
+    - dns
+    - service
+
 - name: Disable systemd-resolved if disabled
-  ansible.builtin.systemd_service:
-    name: systemd-resolved
-    enabled: false
-    state: stopped
+  ansible.builtin.command:
+    cmd: systemctl disable --now systemd-resolved
   when: not (dns_resolved_enabled | bool)
+  changed_when: true
+  failed_when: false
   tags:
     - dns
     - service
