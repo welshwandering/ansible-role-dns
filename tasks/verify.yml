@@ -3,7 +3,7 @@
 
 - name: Verify systemd-resolved is running
   ansible.builtin.command:
-    cmd: systemctl is-active systemd-resolved
+    cmd: systemctl is-active systemd-resolved  # noqa: command-instead-of-module
   register: resolved_running
   changed_when: false
   failed_when: resolved_running.rc != 0
