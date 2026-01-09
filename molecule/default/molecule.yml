@@ -13,7 +13,6 @@ platforms:
     volumes:
       - /sys/fs/cgroup:/sys/fs/cgroup:rw
     cgroupns_mode: host
-    command: /lib/systemd/systemd
     tmpfs:
       - /run
       - /tmp
