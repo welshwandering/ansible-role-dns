@@ -1,0 +1,80 @@
+# yamllint configuration
+extends: default
+
+rules:
+  # Line length - balance readability with long Ansible constructs
+  line-length:
+    max: 160
+    level: warning
+    allow-non-breakable-words: true
+    allow-non-breakable-inline-mappings: true
+
+  # Indentation - 2 spaces, strict
+  indentation:
+    spaces: 2
+    indent-sequences: true
+    check-multi-line-strings: false
+
+  # Comments - require spacing (ansible-lint compatible)
+  comments:
+    min-spaces-from-content: 1  # ansible-lint requires 1
+    require-starting-space: true
+    ignore-shebangs: true
+  comments-indentation: false  # ansible-lint requires false
+
+  # Truthy values - only true/false allowed (not yes/no)
+  truthy:
+    allowed-values: ['true', 'false']
+    check-keys: true
+
+  # Octal values - ansible-lint compatible
+  octal-values:
+    forbid-implicit-octal: true  # ansible-lint requires true
+    forbid-explicit-octal: true  # ansible-lint requires true
+
+  # Brackets - consistent spacing
+  brackets:
+    min-spaces-inside: 0
+    max-spaces-inside: 0
+    min-spaces-inside-empty: 0
+    max-spaces-inside-empty: 0
+
+  # Braces - consistent spacing
+  braces:
+    min-spaces-inside: 0
+    max-spaces-inside: 1
+    min-spaces-inside-empty: 0
+    max-spaces-inside-empty: 0
+
+  # Document start - require ---
+  document-start:
+    present: true
+
+  # Document end - not required
+  document-end:
+    present: false
+
+  # Empty values - disallow
+  empty-values:
+    forbid-in-block-mappings: true
+    forbid-in-flow-mappings: true
+
+  # Key duplicates - error
+  key-duplicates:
+    forbid-duplicated-merge-keys: true
+
+  # New lines
+  new-line-at-end-of-file: enable
+  new-lines:
+    type: unix
+
+  # Trailing spaces
+  trailing-spaces: enable
+
+# Ignore patterns
+ignore: |
+  .cache/
+  .tox/
+  tests/output/
+  collections/
+  .github/
