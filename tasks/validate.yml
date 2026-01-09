@@ -51,7 +51,6 @@
   register: resolved_check
   failed_when: false
   check_mode: false
-  become: true
   tags:
     - dns
     - validate

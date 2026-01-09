@@ -8,7 +8,6 @@
     owner: root
     group: root
     mode: '0755'
-  become: true
   tags:
     - dns
     - config
@@ -22,7 +21,6 @@
     paths: /etc/systemd/resolved.conf.d
     patterns: "*.conf"
   register: existing_conf_files
-  become: true
   when: dns_cleanup_old_configs | bool
   tags:
     - dns
@@ -39,7 +37,6 @@
   when:
     - dns_cleanup_old_configs | bool
     - item.path | basename != dns_config_filename
-  become: true
   notify: Restart systemd-resolved
   tags:
     - dns
@@ -58,7 +55,6 @@
     group: root
     mode: '0644'
     backup: true
-  become: true
   notify: Restart systemd-resolved
   when: dns_resolved_enabled | bool
   tags:
@@ -89,7 +85,6 @@
     mode: '0644'
     remote_src: true
     force: false
-  become: true
   when:
     - dns_manage_resolv_conf | bool
     - dns_resolved_enabled | bool
@@ -103,7 +98,6 @@
   ansible.builtin.file:
     path: /etc/resolv.conf
     state: absent
-  become: true
   when:
     - dns_manage_resolv_conf | bool
     - dns_resolved_enabled | bool
@@ -123,7 +117,6 @@
     owner: root
     group: root
     force: true
-  become: true
   when:
     - dns_manage_resolv_conf | bool
     - dns_resolved_enabled | bool

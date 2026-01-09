@@ -7,7 +7,6 @@
     regexp: '^hosts:'
     line: "hosts:          {{ dns_nsswitch_hosts }}"
     backup: true
-  become: true
   when: dns_resolved_enabled | bool
   tags:
     - dns

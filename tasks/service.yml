@@ -6,7 +6,6 @@
     name: systemd-resolved
     enabled: true
     state: started
-  become: true
   when: dns_resolved_enabled | bool
   tags:
     - dns
@@ -17,7 +16,6 @@
     name: systemd-resolved
     enabled: false
     state: stopped
-  become: true
   when: not (dns_resolved_enabled | bool)
   tags:
     - dns

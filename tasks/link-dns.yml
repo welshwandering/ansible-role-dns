@@ -19,7 +19,6 @@
   register: current_link_dns
   changed_when: false
   failed_when: false
-  become: true
   when:
     - dns_resolved_enabled | bool
     - item.servers is defined
@@ -38,7 +37,6 @@
   register: link_dns_result
   changed_when: link_dns_result.rc == 0
   failed_when: link_dns_result.rc != 0
-  become: true
   when:
     - item.rc is defined
     - item.rc == 0
@@ -64,7 +62,6 @@
   register: current_link_domains
   changed_when: false
   failed_when: false
-  become: true
   when:
     - dns_resolved_enabled | bool
     - item.domains is defined
@@ -83,7 +80,6 @@
   register: link_domain_result
   changed_when: link_domain_result.rc == 0
   failed_when: link_domain_result.rc != 0
-  become: true
   when:
     - item.rc is defined
     - item.rc == 0

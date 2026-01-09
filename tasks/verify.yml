@@ -8,7 +8,6 @@
   check_mode: true
   register: resolved_running
   failed_when: resolved_running.changed
-  become: true
   when: dns_resolved_enabled | bool
   tags:
     - dns
@@ -48,7 +47,6 @@
   register: dns_localhost_test
   changed_when: false
   failed_when: dns_localhost_test.rc != 0
-  become: true
   when: dns_resolved_enabled | bool
   tags:
     - dns
@@ -60,7 +58,6 @@
   register: dns_external_test
   changed_when: false
   failed_when: false  # Don't fail if no network connectivity
-  become: true
   when: dns_resolved_enabled | bool
   tags:
     - dns
@@ -88,7 +85,6 @@
     cmd: resolvectl status --no-pager
   register: resolved_status
   changed_when: false
-  become: true
   when: dns_resolved_enabled | bool
   tags:
     - dns
@@ -99,7 +95,6 @@
     cmd: resolvectl statistics
   register: dns_statistics
   changed_when: false
-  become: true
   when: dns_resolved_enabled | bool
   tags:
     - dns
