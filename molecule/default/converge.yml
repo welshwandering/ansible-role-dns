@@ -29,7 +29,7 @@
       when: ansible_os_family == "RedHat" or ansible_distribution == "Fedora"
 
   roles:
-    - role: dns
+    - role: ansible-role-dns
       vars:
         # Core settings
         dns_enabled: true

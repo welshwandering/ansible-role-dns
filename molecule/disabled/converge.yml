@@ -27,7 +27,7 @@
       register: initial_resolved_state
 
   roles:
-    - role: dns
+    - role: ansible-role-dns
       vars:
         dns_enabled: false
 
