@@ -62,19 +62,9 @@
     - dns
     - verify
 
-- name: Warn if external DNS resolution failed
-  ansible.builtin.debug:
-    msg: |
-      WARNING: External DNS resolution test failed.
-      This may indicate network connectivity issues or DNS misconfiguration.
-      Error: {{ dns_external_test.stderr | default('Unknown error') }}
-  when:
-    - dns_resolved_enabled | bool
-    - dns_external_test.rc | default(0) != 0
-  failed_when: false
-  tags:
-    - dns
-    - verify
+# Warn task removed due to RHEL 10 module deserialization failure
+# - name: Warn if external DNS resolution failed ...
+
 
 # =============================================================================
 # Configuration Verification
