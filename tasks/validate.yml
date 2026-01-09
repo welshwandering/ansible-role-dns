@@ -83,7 +83,7 @@
       Or set dns_resolved_enabled: false to skip resolved configuration.
   when:
     - dns_resolved_enabled | bool
-    - resolved_enabled_check.stdout == 'masked'
+    - resolved_enabled_check.status.LoadState == 'masked'
   tags:
     - dns
     - validate
