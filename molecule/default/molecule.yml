@@ -1,86 +1,12 @@
-# Molecule configuration for dns role
-# Tests systemd-resolved configuration across Debian and Ubuntu releases
-#
-# Uses geerlingguy's systemd-enabled Docker images for testing.
-# These images include systemd and are designed for Ansible testing.
+# Molecule configuration for CI/CD
+# Uses environment variables to select distro/image dynamically
 
 driver:
   name: docker
 
 platforms:
-  # =========================================================================
-  # Debian releases (using geerlingguy systemd images)
-  # =========================================================================
-
-  - name: debian-12
-    image: geerlingguy/docker-debian12-ansible:latest
-    pre_build_image: true
-    privileged: true
-    volumes:
-      - /sys/fs/cgroup:/sys/fs/cgroup:rw
-    cgroupns_mode: host
-    command: /lib/systemd/systemd
-    tmpfs:
-      - /run
-      - /tmp
-
-  # =========================================================================
-  # Ubuntu releases (using geerlingguy systemd images)
-  # =========================================================================
-
-  - name: ubuntu-24
-    image: geerlingguy/docker-ubuntu2404-ansible:latest
-    pre_build_image: true
-    privileged: true
-    volumes:
-      - /sys/fs/cgroup:/sys/fs/cgroup:rw
-    cgroupns_mode: host
-    command: /lib/systemd/systemd
-    tmpfs:
-      - /run
-      - /tmp
-  - name: fedora-43
-    image: geerlingguy/docker-fedora43-ansible:latest
-    pre_build_image: true
-    privileged: true
-    volumes:
-      - /sys/fs/cgroup:/sys/fs/cgroup:rw
-    cgroupns_mode: host
-    command: /lib/systemd/systemd
-    tmpfs:
-      - /run
-      - /tmp
-
-  # =========================================================================
-  # Rocky Linux releases (using geerlingguy systemd images)
-  # =========================================================================
-
-  - name: rockylinux-10
-    image: geerlingguy/docker-rockylinux10-ansible:latest
-    pre_build_image: true
-    privileged: true
-    volumes:
-      - /sys/fs/cgroup:/sys/fs/cgroup:rw
-    cgroupns_mode: host
-    command: /lib/systemd/systemd
-    tmpfs:
-      - /run
-      - /tmp
-
-  - name: rockylinux-9
-    image: geerlingguy/docker-rockylinux9-ansible:latest
-    pre_build_image: true
-    privileged: true
-    volumes:
-      - /sys/fs/cgroup:/sys/fs/cgroup:rw
-    cgroupns_mode: host
-    command: /lib/systemd/systemd
-    tmpfs:
-      - /run
-      - /tmp
-
-  - name: debian-13
-    image: geerlingguy/docker-debian13-ansible:latest
+  - name: "${MOLECULE_DISTRO:-debian12}"
+    image: "${MOLECULE_IMAGE:-geerlingguy/docker-debian12-ansible:latest}"
     pre_build_image: true
     privileged: true
     volumes:
@@ -100,21 +26,35 @@ provisioner:
     ANSIBLE_ROLES_PATH: "${MOLECULE_PROJECT_DIRECTORY}/..:${MOLECULE_PROJECT_DIRECTORY}"
   inventory:
     host_vars:
-      debian-12:
+      # Debian
+      debian11:
         ansible_python_interpreter: /usr/bin/python3
-      debian-13:
+      debian12:
         ansible_python_interpreter: /usr/bin/python3
-      ubuntu-24:
+      debian13:
         ansible_python_interpreter: /usr/bin/python3
-      rockylinux-10:
+      debian14:
         ansible_python_interpreter: /usr/bin/python3
-      rockylinux-9:
+      
+      # Ubuntu
+      ubuntu2004:
         ansible_python_interpreter: /usr/bin/python3
-      fedora-43:
+      ubuntu2204:
         ansible_python_interpreter: /usr/bin/python3
-  playbooks:
-    converge: converge.yml
-    verify: verify.yml
+      ubuntu2404:
+        ansible_python_interpreter: /usr/bin/python3
+      
+      # Rocky
+      rockylinux8:
+        ansible_python_interpreter: /usr/bin/python3
+      rockylinux9:
+        ansible_python_interpreter: /usr/bin/python3
+      rockylinux10:
+        ansible_python_interpreter: /usr/bin/python3
+      
+      # Fedora
+      fedora43:
+        ansible_python_interpreter: /usr/bin/python3
 
 verifier:
   name: ansible
@@ -129,9 +69,7 @@ scenario:
     - create
     - prepare
     - converge
-    # Note: Idempotence test disabled for v1.0.0 - false positives in Docker
-    # containers due to template module behavior. Core functionality verified.
-    # TODO: Investigate and fix for v1.0.1
+    # Idempotence temporarily disabled (see previous notes)
     # - idempotence
     - verify
     - cleanup
