@@ -1,3 +1,4 @@
+---
 # Molecule configuration for dns role - disabled scenario
 # Tests that role exits cleanly when dns_enabled: false
 

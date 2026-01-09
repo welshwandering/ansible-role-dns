@@ -1,3 +1,4 @@
+---
 # Molecule configuration for CI/CD
 # Uses environment variables to select distro/image dynamically
 
@@ -35,7 +36,7 @@ provisioner:
         ansible_python_interpreter: /usr/bin/python3
       debian14:
         ansible_python_interpreter: /usr/bin/python3
-      
+
       # Ubuntu
       ubuntu2004:
         ansible_python_interpreter: /usr/bin/python3
@@ -43,7 +44,7 @@ provisioner:
         ansible_python_interpreter: /usr/bin/python3
       ubuntu2404:
         ansible_python_interpreter: /usr/bin/python3
-      
+
       # Rocky
       rockylinux8:
         ansible_python_interpreter: /usr/bin/python3
@@ -51,7 +52,7 @@ provisioner:
         ansible_python_interpreter: /usr/bin/python3
       rockylinux10:
         ansible_python_interpreter: /usr/bin/python3
-      
+
       # Fedora
       fedora43:
         ansible_python_interpreter: /usr/bin/python3
