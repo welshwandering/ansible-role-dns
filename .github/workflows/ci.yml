@@ -48,21 +48,31 @@ jobs:
         include:
           # Debian
           - distro: debian14
+            image: geerlingguy/docker-debian14-ansible:latest
           - distro: debian13
+            image: geerlingguy/docker-debian13-ansible:latest
           - distro: debian12
+            image: geerlingguy/docker-debian12-ansible:latest
           - distro: debian11
+            image: geerlingguy/docker-debian11-ansible:latest
 
           # Ubuntu
           - distro: ubuntu2404
+            image: geerlingguy/docker-ubuntu2404-ansible:latest
           - distro: ubuntu2204
+            image: geerlingguy/docker-ubuntu2204-ansible:latest
 
           # Rocky Linux (Temporarily disabled due to CI environment issues)
           # - distro: rockylinux10
+          #   image: geerlingguy/docker-rockylinux10-ansible:latest
           # - distro: rockylinux9
+          #   image: geerlingguy/docker-rockylinux9-ansible:latest
           # - distro: rockylinux8
+          #   image: geerlingguy/docker-rockylinux8-ansible:latest
 
-          # Fedora
+          # Fedora (Temporarily disabled)
           # - distro: fedora43
+          #   image: geerlingguy/docker-fedora43-ansible:latest
 
     steps:
       - name: Checkout code
@@ -83,5 +93,7 @@ jobs:
           ansible-galaxy collection install ansible.posix community.general community.docker
 
       - name: Run Molecule tests
-        run: molecule test --scenario-name default --platform-name ${{ matrix.distro }}
-
+        run: molecule test
+        env:
+          MOLECULE_DISTRO: ${{ matrix.distro }}
+          MOLECULE_IMAGE: ${{ matrix.image }}
