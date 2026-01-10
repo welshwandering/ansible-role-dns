@@ -19,26 +19,35 @@
     # =========================================================================
 
     - name: Check systemd-resolved is running
-      ansible.builtin.systemd_service:
-        name: systemd-resolved
-        state: started
-      check_mode: true
+      ansible.builtin.command:
+        cmd: systemctl is-active systemd-resolved  # noqa: command-instead-of-module
       register: resolved_running
-      failed_when: resolved_running.changed
+      failed_when: resolved_running.rc != 0
+      changed_when: false
 
     - name: Check systemd-resolved is enabled
-      ansible.builtin.systemd_service:
-        name: systemd-resolved
-        enabled: true
-      check_mode: true
+      ansible.builtin.command:
+        cmd: systemctl is-enabled systemd-resolved  # noqa: command-instead-of-module
       register: resolved_enabled
-      failed_when: resolved_enabled.changed
+      failed_when: resolved_enabled.rc != 0
+      changed_when: false
 
     - name: Check resolvectl is available
       ansible.builtin.command: resolvectl --version
       register: resolvectl_version
       changed_when: false
       failed_when: resolvectl_version.rc != 0
+
+    # ... (skipping symlink/config checks) ...
+
+    # ...
+
+    - name: Get resolved status
+      ansible.builtin.shell:
+        cmd: "set -o pipefail && resolvectl status | grep -E 'DNSOverTLS.*opportunistic'"
+        executable: /bin/bash
+      register: resolved_status
+      changed_when: false
 
     # =========================================================================
     # Symlink Verification (skipped in containers)

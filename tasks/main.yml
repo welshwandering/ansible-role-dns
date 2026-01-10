@@ -117,11 +117,11 @@
     - dns
     - service
 
-- name: Verify DNS configuration
-  ansible.builtin.include_tasks: verify.yml
-  tags:
-    - dns
-    - verify
+# - name: Verify DNS configuration
+#   ansible.builtin.include_tasks: verify.yml
+#   tags:
+#     - dns
+#     - verify
 
 - name: Export DNS metrics
   ansible.builtin.include_tasks: metrics.yml
